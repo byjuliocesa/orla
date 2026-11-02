@@ -16,6 +16,8 @@ Commands:
   close <id>            End a terminal and everything it started
   run "prompt"          Run Claude Code on a task and follow its steps
   sessions              List agent sessions
+  watch [session]       Follow a session's steps live (default: the latest session)
+  hooks                 Show what Claude Code does in Orla terminals (install, uninstall, print)
 
 Run "orla <command> -h" for the flags of a command.
 `
@@ -40,6 +42,12 @@ func main() {
 		err = run(args)
 	case "sessions":
 		err = sessions(args)
+	case "watch":
+		err = watch(args)
+	case "hooks":
+		err = hooks(args)
+	case "hook":
+		err = hook(args)
 	case "help":
 		fmt.Print(usage)
 	default:

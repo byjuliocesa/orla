@@ -305,11 +305,84 @@ func TestRunRequestsAreValidated(t *testing.T) {
 		t.Errorf("missing session = %d", res.StatusCode)
 	}
 
-	var sess struct{ ID string }
-	_ = json.NewDecoder(request(t, srv, "POST", "/v1/sessions", testToken,
-		map[string]string{"cwd": t.TempDir()}).Body).Decode(&sess)
-	if res := request(t, srv, "POST", "/v1/sessions/"+sess.ID+"/runs", testToken,
-		map[string]string{"prompt": "x", "permission_mode": "yolo"}); res.StatusCode != http.StatusBadRequest {
-		t.Errorf("bad permission mode = %d", res.StatusCode)
+}
+
+func openTerminal(t *testing.T, srv *httptest.Server, argv []string) terminal.Info {
+	t.Helper()
+	var info terminal.Info
+	res := request(t, srv, "POST", "/v1/terminals", testToken, terminal.Spec{Argv: argv})
+	_ = json.NewDecoder(res.Body).Decode(&info)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("open terminal = %d", res.StatusCode)
+	}
+	return info
+}
+
+func postHook(t *testing.T, srv *httptest.Server, terminal, token string) int {
+	t.Helper()
+	req, _ := http.NewRequest("POST", srv.URL+"/hooks/claude",
+		strings.NewReader(`{"hook_event_name":"SessionStart","session_id":"n1","cwd":"/w"}`))
+	req.Header.Set("X-Orla-Terminal", terminal)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	return res.StatusCode
+}
+
+// What runs in a terminal gets a token that reports hooks for that terminal and does nothing
+// else; the owner token never reaches it.
+func TestTerminalEnvironmentHoldsOnlyItsHookToken(t *testing.T) {
+	srv := newServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	a := openTerminal(t, srv, []string{"sh"})
+	b := openTerminal(t, srv, []string{"sh"})
+	c, err := dial(t, ctx, srv, a.ID, http.Header{"Authorization": {"Bearer " + testToken}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	_ = c.Write(ctx, websocket.MessageBinary, []byte("env; echo env-$((1+1))\n"))
+	var env strings.Builder
+	for !strings.Contains(env.String(), "env-2") {
+		_, data, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		env.Write(data)
+	}
+	out := env.String()
+	if strings.Contains(out, testToken) {
+		t.Fatal("the owner token is in the terminal's environment")
+	}
+	var hookToken string
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "ORLA_HOOK_TOKEN="); ok {
+			hookToken = v
+		}
+	}
+	if hookToken == "" || !strings.Contains(out, "ORLA_TERMINAL="+a.ID) {
+		t.Fatalf("terminal env lacks the hook settings:\n%s", out)
+	}
+
+	if code := postHook(t, srv, a.ID, hookToken); code != http.StatusNoContent {
+		t.Fatalf("hook with its own token = %d", code)
+	}
+	if code := postHook(t, srv, b.ID, hookToken); code != http.StatusUnauthorized {
+		t.Fatalf("hook token of one terminal accepted for another = %d", code)
+	}
+	if code := postHook(t, srv, "term_missing", hookToken); code != http.StatusUnauthorized {
+		t.Fatalf("hook for unknown terminal = %d", code)
+	}
+	// It must not open the API either.
+	if res := request(t, srv, "GET", "/v1/sessions", hookToken, nil); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("hook token opened the API: %d", res.StatusCode)
+	}
+	if code := postHook(t, srv, a.ID, testToken); code != http.StatusUnauthorized {
+		t.Fatalf("owner token accepted as a hook token = %d", code)
 	}
 }

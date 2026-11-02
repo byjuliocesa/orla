@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"slices"
 	"strconv"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
 	"github.com/Julio0Cesar/orla/internal/session"
 	"github.com/Julio0Cesar/orla/internal/store"
 )
@@ -101,10 +99,6 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Prompt == "" {
 		writeError(w, http.StatusBadRequest, "prompt is required")
-		return
-	}
-	if body.PermissionMode != "" && !slices.Contains(cli.PermissionModes, body.PermissionMode) {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("permission_mode must be one of %v", cli.PermissionModes))
 		return
 	}
 

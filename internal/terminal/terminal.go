@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-
-	"github.com/Julio0Cesar/orla/internal/id"
 )
 
 // scrollbackLimit is how many bytes of recent output a terminal keeps for clients that attach
@@ -31,6 +29,10 @@ type Spec struct {
 	Cwd  string   `json:"cwd"`
 	Cols uint16   `json:"cols"`
 	Rows uint16   `json:"rows"`
+	// Env is added to the process environment. Set by Orla, never by clients.
+	Env []string `json:"-"`
+	// HookToken authenticates hook events from CLIs in this terminal. Set by Orla.
+	HookToken string `json:"-"`
 }
 
 // Info is what is reported about a terminal.
@@ -44,9 +46,10 @@ type Info struct {
 
 // Terminal is a process running on a PTY. It keeps running while no client is attached.
 type Terminal struct {
-	info Info
-	pty  *os.File
-	cmd  *exec.Cmd
+	info      Info
+	hookToken string
+	pty       *os.File
+	cmd       *exec.Cmd
 
 	mu         sync.Mutex
 	scrollback []byte
@@ -56,7 +59,7 @@ type Terminal struct {
 	exitCode int
 }
 
-func start(spec Spec) (*Terminal, error) {
+func start(termID string, spec Spec) (*Terminal, error) {
 	if len(spec.Argv) == 0 {
 		return nil, errors.New("terminal: argv is empty")
 	}
@@ -67,6 +70,7 @@ func start(spec Spec) (*Terminal, error) {
 	cmd := exec.Command(spec.Argv[0], spec.Argv[1:]...)
 	cmd.Dir = spec.Cwd
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
+	cmd.Env = append(cmd.Env, spec.Env...)
 
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: spec.Cols, Rows: spec.Rows})
 	if err != nil {
@@ -75,15 +79,16 @@ func start(spec Spec) (*Terminal, error) {
 
 	t := &Terminal{
 		info: Info{
-			ID:      id.New("term"),
+			ID:      termID,
 			Argv:    spec.Argv,
 			Cwd:     spec.Cwd,
 			Started: time.Now().UTC(),
 		},
-		pty:     f,
-		cmd:     cmd,
-		clients: map[chan []byte]struct{}{},
-		done:    make(chan struct{}),
+		hookToken: spec.HookToken,
+		pty:       f,
+		cmd:       cmd,
+		clients:   map[chan []byte]struct{}{},
+		done:      make(chan struct{}),
 	}
 	output := make(chan struct{})
 	go t.pump(output)
@@ -196,6 +201,9 @@ func (t *Terminal) Resize(cols, rows uint16) error {
 	}
 	return pty.Setsize(t.pty, &pty.Winsize{Cols: cols, Rows: rows})
 }
+
+// HookToken is the secret CLIs in this terminal present when reporting hook events.
+func (t *Terminal) HookToken() string { return t.hookToken }
 
 // Done closes when the process has exited.
 func (t *Terminal) Done() <-chan struct{} { return t.done }

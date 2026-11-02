@@ -57,7 +57,7 @@ func run(args []string) error {
 	fs, connect := clientFlags("run")
 	sessionID := fs.String("session", "", "continue this session; empty starts a new one")
 	cwd := fs.String("cwd", "", "folder for a new session (default: current folder)")
-	mode := fs.String("mode", "", "permission mode: default, acceptEdits, bypassPermissions or plan")
+	mode := fs.String("mode", "", "permission mode, as the CLI names it (e.g. manual, acceptEdits, auto, plan); empty keeps the CLI's default")
 	model := fs.String("model", "", "model for this run, as the CLI names it (e.g. haiku, sonnet)")
 	raw := fs.Bool("json", false, "print events as JSON lines instead of a timeline")
 	_ = fs.Parse(args)
@@ -156,4 +156,64 @@ func (c *client) events(ctx context.Context, session string, after int64) (io.Re
 		return nil, fmt.Errorf("event stream: %s", res.Status)
 	}
 	return res.Body, nil
+}
+
+// watch follows a session's timeline as it happens, whoever drives it: a headless run, or
+// Claude Code typed into an Orla terminal.
+func watch(args []string) error {
+	fs, connect := clientFlags("watch")
+	all := fs.Bool("all", false, "replay the session's history first")
+	raw := fs.Bool("json", false, "print events as JSON lines")
+	_ = fs.Parse(args)
+	c, err := connect()
+	if err != nil {
+		return err
+	}
+
+	var sess sessionInfo
+	if fs.NArg() > 0 {
+		var res struct{ Session sessionInfo }
+		if err := c.do("GET", "/v1/sessions/"+fs.Arg(0), nil, &res); err != nil {
+			return err
+		}
+		sess = res.Session
+	} else {
+		var res struct{ Sessions []sessionInfo }
+		if err := c.do("GET", "/v1/sessions", nil, &res); err != nil {
+			return err
+		}
+		if len(res.Sessions) == 0 {
+			return errors.New("no sessions yet")
+		}
+		sess = res.Sessions[0]
+	}
+	from := sess.LastSeq
+	if *all {
+		from = 0
+	}
+	fmt.Fprintf(os.Stderr, "%s\n", newRenderer(false).dim("watching "+sess.ID+" in "+sess.Cwd+" (Ctrl-C to stop)"))
+
+	stream, err := c.events(context.Background(), sess.ID, from)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	r := newRenderer(term.IsTerminal(int(os.Stdout.Fd())))
+	sc := bufio.NewScanner(stream)
+	sc.Buffer(make([]byte, 1<<20), 64<<20)
+	for sc.Scan() {
+		line, ok := strings.CutPrefix(sc.Text(), "data: ")
+		if !ok {
+			continue
+		}
+		if *raw {
+			fmt.Println(line)
+			continue
+		}
+		var e events.Event
+		if json.Unmarshal([]byte(line), &e) == nil {
+			r.render(e)
+		}
+	}
+	return errors.New("event stream closed; run watch again to resume")
 }

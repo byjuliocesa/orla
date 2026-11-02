@@ -9,6 +9,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/Julio0Cesar/orla/internal/auth"
 	"github.com/Julio0Cesar/orla/internal/terminal"
 )
 
@@ -37,11 +38,27 @@ func (s *Server) openTerminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := s.terminals.Open(spec)
+	// The hook token lets the CLIs in this terminal report to Orla, and nothing else. The owner
+	// token never enters the terminal's environment.
+	hookToken := auth.NewSecret()
+	termID := terminal.NewID()
+	spec.Env = []string{
+		"ORLA_TERMINAL=" + termID,
+		"ORLA_HOOK_URL=" + s.hookURL,
+		"ORLA_HOOK_TOKEN=" + hookToken,
+	}
+	spec.HookToken = hookToken
+	t, err := s.terminals.OpenWithID(termID, spec)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	go func() {
+		<-t.Done()
+		if err := s.sessions.TerminalClosed(context.WithoutCancel(r.Context()), termID); err != nil {
+			s.log.Error("closing runs of a terminal", "terminal", termID, "err", err)
+		}
+	}()
 	s.log.Info("terminal opened", "id", t.Info().ID, "argv", spec.Argv, "cwd", spec.Cwd)
 	writeJSON(w, http.StatusCreated, t.Info())
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -22,10 +23,6 @@ const maxLine = 32 << 20
 
 // stopGrace is how long a cancelled CLI gets to stop after SIGTERM before it is killed.
 const stopGrace = 5 * time.Second
-
-// Permission modes Claude Code accepts. Headless runs cannot ask anyone yet, so in "default"
-// a tool that needs approval is refused and the refusal is reported.
-var PermissionModes = []string{"default", "acceptEdits", "bypassPermissions", "plan"}
 
 // runEnv marks every process of a run, so leftovers can be found after a crash.
 const runEnv = "ORLA_RUN"
@@ -77,7 +74,7 @@ func (c Claude) Run(ctx context.Context, spec Spec, emit func(Out), native func(
 	cmd := exec.Command(path, c.args(spec)...)
 	cmd.Dir = spec.Cwd
 	cmd.SysProcAttr = sysProcAttr()
-	cmd.Env = append(os.Environ(), runEnv+"="+spec.Run)
+	cmd.Env = append(headlessEnv(), runEnv+"="+spec.Run)
 	var stderr bytes.Buffer
 	cmd.Stderr = &limitedWriter{w: &stderr, n: 64 << 10}
 	stdout, err := cmd.StdoutPipe()
@@ -182,4 +179,21 @@ func (l *limitedWriter) Write(p []byte) (int, error) {
 		l.n -= k
 	}
 	return len(p), nil
+}
+
+// TerminalEnv names the variables an Orla terminal sets for the hook command.
+var TerminalEnv = []string{"ORLA_TERMINAL", "ORLA_HOOK_URL", "ORLA_HOOK_TOKEN"}
+
+// headlessEnv is Orla's environment without the terminal variables, in case Orla itself runs
+// in an Orla terminal: a headless run reports through its output, and its hooks must not be
+// taken for the terminal's.
+func headlessEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if !slices.Contains(TerminalEnv, name) {
+			env = append(env, kv)
+		}
+	}
+	return env
 }

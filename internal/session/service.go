@@ -46,6 +46,11 @@ type Service struct {
 
 	mu     sync.Mutex
 	active map[string]*active // by session id
+
+	hookMu sync.Mutex
+	// stopping holds interactive runs past their Stop, waiting for the transcript. Guarded by
+	// hookMu.
+	stopping map[string]bool
 }
 
 type active struct {
@@ -57,7 +62,7 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{
 		log: log, store: st, bus: bus, runners: runners,
-		ctx: ctx, cancel: cancel, active: map[string]*active{},
+		ctx: ctx, cancel: cancel, active: map[string]*active{}, stopping: map[string]bool{},
 	}
 }
 
@@ -122,6 +127,13 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 	runner := s.runners[sess.Agent]
 	if runner == nil {
 		return store.Run{}, fmt.Errorf("%w: %q", ErrUnknownAgent, sess.Agent)
+	}
+	// A conversation also typed into a terminal: resuming it headless at the same time would
+	// fork it.
+	if running, err := s.store.RunningRunsOf(ctx, sess.ID); err != nil {
+		return store.Run{}, err
+	} else if len(running) > 0 {
+		return store.Run{}, ErrBusy
 	}
 
 	run := store.Run{

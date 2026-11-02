@@ -75,6 +75,7 @@ func serve(args []string) error {
 		BaseContext: func(net.Listener) context.Context { return requests },
 		Handler: server.New(server.Deps{
 			Log: log, Token: token, Terminals: terminals, Store: db, Bus: bus, Sessions: sessions,
+			HookURL: "http://" + *addr + "/hooks/claude",
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

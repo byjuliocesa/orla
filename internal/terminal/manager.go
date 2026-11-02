@@ -4,6 +4,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/Julio0Cesar/orla/internal/id"
 )
 
 // killGrace is how long a process gets after SIGHUP before it is killed.
@@ -19,8 +21,16 @@ func NewManager() *Manager {
 	return &Manager{terms: map[string]*Terminal{}}
 }
 
+// NewID returns an id for a terminal about to be opened, for settings that must know it first.
+func NewID() string { return id.New("term") }
+
 func (m *Manager) Open(spec Spec) (*Terminal, error) {
-	t, err := start(spec)
+	return m.OpenWithID(NewID(), spec)
+}
+
+// OpenWithID opens a terminal under an id from NewID.
+func (m *Manager) OpenWithID(termID string, spec Spec) (*Terminal, error) {
+	t, err := start(termID, spec)
 	if err != nil {
 		return nil, err
 	}

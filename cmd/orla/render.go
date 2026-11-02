@@ -48,7 +48,15 @@ func (r *renderer) render(e events.Event) {
 
 	switch e.Type {
 	case events.RunStarted:
-		fmt.Println(r.paint("1", "▶ "+oneLine(str("prompt"), 100)) + r.dim("  in "+str("cwd")))
+		where := "  in " + str("cwd")
+		if t := str("terminal"); t != "" {
+			where += " · typed in " + t
+		}
+		prompt := str("prompt")
+		if prompt == "" {
+			prompt = "(prompt not seen)"
+		}
+		fmt.Println(r.paint("1", "▶ "+oneLine(prompt, 100)) + r.dim(where))
 	case events.MessageAssistant:
 		fmt.Println(indent + strings.ReplaceAll(strings.TrimSpace(str("text")), "\n", "\n"+indent))
 	case events.ToolCall:
@@ -72,14 +80,24 @@ func (r *renderer) render(e events.Event) {
 		case "account":
 			_ = json.Unmarshal(d["limits"], &r.limits)
 		case "run":
-			r.total = []string{
-				plural(int(num("turns")), "turn"),
-				(time.Duration(num("duration_ms")) * time.Millisecond).Round(100 * time.Millisecond).String(),
-				fmt.Sprintf("tokens in %s · out %s · cache read %s · cache write %s",
-					count(num("input_tokens")), count(num("output_tokens")),
-					count(num("cache_read_tokens")), count(num("cache_write_tokens"))),
-				fmt.Sprintf("≈$%.4f at API prices", num("list_cost_usd")),
+			r.total = []string{plural(int(num("turns")), "turn")}
+			// Interactive runs are measured from the transcript, which has no duration or cost.
+			if ms := num("duration_ms"); ms > 0 {
+				r.total = append(r.total, (time.Duration(ms) * time.Millisecond).Round(100*time.Millisecond).String())
 			}
+			r.total = append(r.total, fmt.Sprintf("tokens in %s · out %s · cache read %s · cache write %s",
+				count(num("input_tokens")), count(num("output_tokens")),
+				count(num("cache_read_tokens")), count(num("cache_write_tokens"))))
+			if _, ok := d["list_cost_usd"]; ok {
+				r.total = append(r.total, fmt.Sprintf("≈$%.4f at API prices", num("list_cost_usd")))
+			}
+		}
+	case events.Status:
+		switch str("state") {
+		case "waiting":
+			fmt.Println(indent + r.paint("33", "⏸ waiting for you") + r.dim(" "+oneLine(str("message"), 100)))
+		case "ended":
+			fmt.Println(r.dim("· session ended"))
 		}
 	case events.Error:
 		fmt.Println(indent + r.paint("31", "! "+str("message")))
@@ -90,6 +108,7 @@ func (r *renderer) render(e events.Event) {
 			color = "31"
 		}
 		parts := append([]string{r.paint(color, "■ "+status)}, r.total...)
+		r.total = nil
 		var windows []string
 		for name, w := range r.limits {
 			windows = append(windows, fmt.Sprintf("%s %.0f%%", strings.ReplaceAll(name, "_", " "), w.Used*100))
@@ -98,7 +117,11 @@ func (r *renderer) render(e events.Event) {
 		if len(windows) > 0 {
 			parts = append(parts, "plan used: "+strings.Join(windows, ", "))
 		}
-		fmt.Println(parts[0] + r.dim(" · "+strings.Join(parts[1:], " · ")))
+		if len(parts) > 1 {
+			fmt.Println(parts[0] + r.dim(" · "+strings.Join(parts[1:], " · ")))
+		} else {
+			fmt.Println(parts[0])
+		}
 		if status != "done" && str("summary") != "" {
 			fmt.Println(r.dim("  " + oneLine(str("summary"), 200)))
 		}

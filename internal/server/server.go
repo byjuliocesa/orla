@@ -22,6 +22,8 @@ type Deps struct {
 	Store     *store.Store
 	Bus       *events.Bus
 	Sessions  *session.Service
+	// HookURL is where CLIs in Orla terminals send their hook events.
+	HookURL string
 }
 
 type Server struct {
@@ -30,11 +32,15 @@ type Server struct {
 	store     *store.Store
 	bus       *events.Bus
 	sessions  *session.Service
+	hookURL   string
 }
 
 // New returns the root handler with every route registered.
 func New(d Deps) http.Handler {
-	s := &Server{log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions}
+	s := &Server{
+		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
+		hookURL: d.HookURL,
+	}
 
 	api := http.NewServeMux()
 	api.HandleFunc("GET /v1/terminals", s.listTerminals)
@@ -56,6 +62,7 @@ func New(d Deps) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.Handle("/v1/", auth.Require(d.Token, api))
+	mux.HandleFunc("POST /hooks/claude", s.claudeHook)
 	return mux
 }
 

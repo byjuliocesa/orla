@@ -32,11 +32,7 @@ func LoadOrCreateToken(path string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", err
 	}
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
-	}
-	token := "orla_" + base64.RawURLEncoding.EncodeToString(raw)
+	token := "orla_" + NewSecret()
 
 	// O_EXCL: two processes starting at once must not each write a different token.
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
@@ -69,4 +65,16 @@ func Require(token string, next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// NewSecret returns 256 random bits, URL-safe.
+func NewSecret() string {
+	raw := make([]byte, 32)
+	_, _ = rand.Read(raw) // never fails: crypto/rand panics rather than return an error
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// Equal compares secrets in constant time.
+func Equal(got, want string) bool {
+	return want != "" && subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }

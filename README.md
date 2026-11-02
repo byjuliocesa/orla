@@ -56,6 +56,18 @@ it happens:
 ./orla sessions
 ```
 
+Claude Code typed into an Orla terminal reports its steps too, once its hooks are installed:
+
+```bash
+./orla hooks install             # adds Orla's hooks to ~/.claude/settings.json, keeping the rest
+./orla attach -- claude          # use it as usual
+./orla watch                     # from anywhere: follow the latest session live
+```
+
+The hooks do nothing outside Orla terminals. Each terminal gets its own hook token, which only
+reports that terminal's events; the owner token never enters a terminal. `orla hooks print`
+shows the fragment instead, for `claude --settings`.
+
 Ctrl-C cancels the run, and everything it started. Without `-mode`, Claude Code uses its own
 default from `~/.claude/settings.json`, which may approve everything.
 
