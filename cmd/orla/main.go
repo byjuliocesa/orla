@@ -1,50 +1,61 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"flag"
-	"log/slog"
-	"net/http"
+	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/Julio0Cesar/orla/internal/server"
+	"path/filepath"
+	"strings"
 )
 
+const usage = `Usage: orla <command> [flags]
+
+Commands:
+  serve                 Run the server (default)
+  attach [id] [-- cmd]  Attach to a terminal; without an id, open a new one here
+  ls                    List running terminals
+  close <id>            End a terminal and everything it started
+
+Run "orla <command> -h" for the flags of a command.
+`
+
 func main() {
-	// Loopback by default: the API will expose shells on this machine, so reaching it from
-	// outside must be a deliberate choice, not the default.
-	addr := flag.String("addr", "127.0.0.1:4410", "address to listen on")
-	flag.Parse()
-
-	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
-	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           server.New(log),
-		ReadHeaderTimeout: 10 * time.Second,
+	cmd, args := "serve", os.Args[1:]
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		cmd, args = args[0], args[1:]
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	go func() {
-		log.Info("listening", "addr", *addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server stopped", "err", err)
-			stop()
-		}
-	}()
-
-	<-ctx.Done()
-
-	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(shutdown); err != nil {
-		log.Error("shutdown", "err", err)
+	var err error
+	switch cmd {
+	case "serve":
+		err = serve(args)
+	case "attach":
+		err = attach(args)
+	case "ls":
+		err = list(args)
+	case "close":
+		err = closeTerminal(args)
+	case "help":
+		fmt.Print(usage)
+	default:
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "orla:", err)
 		os.Exit(1)
 	}
 }
+
+const defaultAddr = "127.0.0.1:4410"
+
+// defaultDataDir follows the XDG base directory spec: $XDG_DATA_HOME/orla, or
+// ~/.local/share/orla.
+func defaultDataDir() string {
+	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {
+		return filepath.Join(dir, "orla")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "orla")
+}
+
+func tokenPath(dataDir string) string { return filepath.Join(dataDir, "token") }

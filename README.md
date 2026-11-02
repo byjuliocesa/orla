@@ -28,9 +28,38 @@ docs/                Architecture, events, decisions
 ## Running
 
 ```bash
-go run ./cmd/orla        # listens on 127.0.0.1:4410
-curl 127.0.0.1:4410/health
+go build -o orla ./cmd/orla
+./orla serve             # listens on 127.0.0.1:4410
 ```
+
+The first run creates an access token in `~/.local/share/orla/token`. Clients on the same
+machine read it from there; elsewhere, set `ORLA_TOKEN`.
+
+Terminals live on the server and keep running when you leave them:
+
+```bash
+./orla attach                    # new terminal with your shell, in the current folder
+./orla attach -- claude          # new terminal running a command
+# Ctrl-] detaches; the terminal keeps running
+./orla ls                        # running terminals
+./orla attach term_01...         # back in, with recent output replayed
+./orla close term_01...          # end it and everything it started
+```
+
+To reach a server on another machine without exposing it, forward the port over SSH:
+`ssh -L 4410:127.0.0.1:4410 your-server`.
+
+## API
+
+Every route under `/v1` needs `Authorization: Bearer <token>`.
+
+| Route | |
+| --- | --- |
+| `GET /health` | No token. Says the process is up. |
+| `GET /v1/terminals` | Running terminals. |
+| `POST /v1/terminals` | Open one: `{"argv": [...], "cwd": "...", "cols": 80, "rows": 24}`, all optional. |
+| `DELETE /v1/terminals/{id}` | End it and every process it started. |
+| `GET /v1/terminals/{id}/stream` | WebSocket. Binary messages are terminal bytes both ways. Text messages are control: `{"type":"resize","cols":..,"rows":..}` from the client, `{"type":"exit","code":..}` from the server. |
 
 ## License
 
