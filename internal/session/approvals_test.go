@@ -36,22 +36,25 @@ func askingSetup(t *testing.T) (fixture, *askingRunner, store.Session) {
 	return f, runner, sess
 }
 
-// nextApproval waits for the run's approval request and returns its id.
-func nextApproval(t *testing.T, f fixture, session string) string {
+// nextRequest waits for the session's next approval request and returns its data.
+func nextRequest(t *testing.T, f fixture, session string) map[string]any {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for e := range f.bus.Subscribe(ctx, session, 0) {
 		if e.Type == events.ApprovalRequested {
-			var d struct {
-				ApprovalID string `json:"approval_id"`
-			}
+			var d map[string]any
 			_ = json.Unmarshal(e.Data, &d)
-			return d.ApprovalID
+			return d
 		}
 	}
 	t.Fatal("no approval requested")
-	return ""
+	return nil
+}
+
+func nextApproval(t *testing.T, f fixture, session string) string {
+	t.Helper()
+	return nextRequest(t, f, session)["approval_id"].(string)
 }
 
 func resolvedEvents(t *testing.T, f fixture, session string) []map[string]any {

@@ -74,9 +74,14 @@ Claude Code typed into an Orla terminal reports its steps too, once its hooks ar
 ./orla watch                     # from anywhere: follow the latest session live
 ```
 
+Its permission prompts reach you the same way: the terminal shows the prompt, `orla watch` shows
+the request, and the first answer counts, typed in the terminal or sent with `orla approve`. A
+request nobody answers through Orla is dropped after 10 minutes and the terminal keeps asking.
+
 The hooks do nothing outside Orla terminals. Each terminal gets its own hook token, which only
 reports that terminal's events; the owner token never enters a terminal. `orla hooks print`
-shows the fragment instead, for `claude --settings`.
+shows the fragment instead, for `claude --settings`. Run `orla hooks install` again after
+updating Orla, to pick up new hooks.
 
 Ctrl-C cancels the run, and everything it started. Without `-mode`, Claude Code uses its own
 default from `~/.claude/settings.json`, which may approve everything.

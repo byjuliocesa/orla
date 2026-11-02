@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -157,5 +159,115 @@ func TestRunMCPEndpointIsBoundToItsRun(t *testing.T) {
 			t.Fatal("endpoint still open after the run ended")
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// terminalHookToken opens a terminal and reads the hook token it was given, as the hook command
+// in it would.
+func terminalHookToken(t *testing.T, ctx context.Context, srv *httptest.Server) (termID, token string) {
+	t.Helper()
+	info := openTerminal(t, srv, []string{"sh", "-c", `echo "token=$ORLA_HOOK_TOKEN."; sleep 60`})
+	c, err := dial(t, ctx, srv, info.ID, http.Header{"Authorization": {"Bearer " + testToken}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	var out strings.Builder
+	for {
+		_, data, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out.Write(data)
+		if m := regexp.MustCompile(`token=(\S+)\.`).FindStringSubmatch(out.String()); m != nil {
+			return info.ID, m[1]
+		}
+	}
+}
+
+func sendHook(ctx context.Context, srv *httptest.Server, termID, token, payload string) (*http.Response, error) {
+	req, _ := http.NewRequestWithContext(ctx, "POST", srv.URL+"/hooks/claude", strings.NewReader(payload))
+	req.Header.Set("X-Orla-Terminal", termID)
+	req.Header.Set("Authorization", "Bearer "+token)
+	return srv.Client().Do(req)
+}
+
+// A permission prompt of a CLI in a terminal is held open until the owner answers through the
+// API, and the answer comes back in the form Claude Code reads from the hook.
+func TestTerminalPromptWaitsForTheOwner(t *testing.T) {
+	srv := newServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	termID, token := terminalHookToken(t, ctx, srv)
+
+	const ask = `{"hook_event_name":"PermissionRequest","session_id":"n1","prompt_id":"p1","cwd":"/w",
+		"tool_name":"Bash","tool_input":{"command":"make deploy"}}`
+	type reply struct {
+		code int
+		body string
+	}
+	replies := make(chan reply, 1)
+	go func() {
+		res, err := sendHook(ctx, srv, termID, token, ask)
+		if err != nil {
+			replies <- reply{code: -1, body: err.Error()}
+			return
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		replies <- reply{res.StatusCode, string(b)}
+	}()
+
+	var list struct{ Sessions []struct{ ID string } }
+	for len(list.Sessions) == 0 && ctx.Err() == nil {
+		time.Sleep(20 * time.Millisecond)
+		_ = json.NewDecoder(request(t, srv, "GET", "/v1/sessions", testToken, nil).Body).Decode(&list)
+	}
+	if len(list.Sessions) == 0 {
+		t.Fatal("the hook created no session")
+	}
+	sessions := list.Sessions
+	body := streamEvents(t, ctx, srv, sessions[0].ID, "")
+	defer body.Close()
+	got := readSSE(t, body, events.ApprovalRequested)
+	var req struct {
+		ApprovalID string `json:"approval_id"`
+		Terminal   string `json:"terminal"`
+	}
+	_ = json.Unmarshal(got[len(got)-1].Data, &req)
+	if req.Terminal != termID {
+		t.Fatalf("request names terminal %q, want %s", req.Terminal, termID)
+	}
+
+	res := request(t, srv, "POST", "/v1/sessions/"+sessions[0].ID+"/approvals/"+req.ApprovalID, testToken,
+		map[string]any{"allow": false, "message": "not today", "by": "web"})
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("resolve = %d", res.StatusCode)
+	}
+	r := <-replies
+	want := `{"hookSpecificOutput":{"decision":{"behavior":"deny","message":"The user denied this from Orla, their remote approval tool. Their note: not today"},"hookEventName":"PermissionRequest"}}`
+	if r.code != http.StatusOK || strings.TrimSpace(r.body) != want {
+		t.Fatalf("hook got %d %s", r.code, r.body)
+	}
+
+	// A prompt that ends before anyone answers gets no answer: the terminal decides.
+	go func() {
+		res, err := sendHook(ctx, srv, termID, token, ask)
+		if err != nil {
+			replies <- reply{code: -1, body: err.Error()}
+			return
+		}
+		res.Body.Close()
+		replies <- reply{code: res.StatusCode}
+	}()
+	readSSE(t, body, events.ApprovalRequested)
+	res2, err := sendHook(ctx, srv, termID, token,
+		`{"hook_event_name":"UserPromptSubmit","session_id":"n1","prompt_id":"p2","cwd":"/w","prompt":"other"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res2.Body.Close()
+	if r := <-replies; r.code != http.StatusNoContent {
+		t.Fatalf("hook of an ended prompt got %d %s", r.code, r.body)
 	}
 }

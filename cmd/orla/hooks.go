@@ -23,30 +23,56 @@ import (
 const hookTimeout = 2 * time.Second
 
 // hook is the command Claude Code runs for each hook event. Outside an Orla terminal it does
-// nothing, so it can sit in the global Claude Code settings. It never fails and never prints:
-// a failing hook shows errors in the CLI, and UserPromptSubmit adds stdout to the prompt.
+// nothing, so it can sit in the global Claude Code settings. It never fails, and it prints only
+// the owner's answer to a permission prompt: a failing hook shows errors in the CLI, and
+// UserPromptSubmit adds stdout to the prompt.
 func hook(_ []string) error {
-	terminal, url, token := os.Getenv("ORLA_TERMINAL"), os.Getenv("ORLA_HOOK_URL"), os.Getenv("ORLA_HOOK_TOKEN")
+	sendHook(os.Stdin, os.Stdout, os.Getenv)
+	return nil
+}
+
+func sendHook(stdin io.Reader, stdout io.Writer, getenv func(string) string) {
+	terminal, url, token := getenv("ORLA_TERMINAL"), getenv("ORLA_HOOK_URL"), getenv("ORLA_HOOK_TOKEN")
 	if terminal == "" || url == "" || token == "" {
-		_, _ = io.Copy(io.Discard, os.Stdin)
-		return nil
+		_, _ = io.Copy(io.Discard, stdin)
+		return
 	}
-	body, err := io.ReadAll(io.LimitReader(os.Stdin, 8<<20))
+	body, err := io.ReadAll(io.LimitReader(stdin, 8<<20))
 	if err != nil {
-		return nil
+		return
 	}
+	var h struct {
+		Event string `json:"hook_event_name"`
+	}
+	_ = json.Unmarshal(body, &h)
+	// A permission prompt waits for the owner. The terminal shows it meanwhile, so the wait
+	// holds nobody up.
+	asks := h.Event == cli.HookPermissionRequest
+	timeout := hookTimeout
+	if asks {
+		timeout = cli.PermissionHookTimeout
+	}
+
 	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
-		return nil
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("X-Orla-Terminal", terminal)
-	res, err := (&http.Client{Timeout: hookTimeout}).Do(req)
-	if err == nil {
-		res.Body.Close()
+	res, err := (&http.Client{Timeout: timeout}).Do(req)
+	if err != nil {
+		return
 	}
-	return nil
+	defer res.Body.Close()
+	if !asks || res.StatusCode != http.StatusOK {
+		return
+	}
+	answer, err := io.ReadAll(io.LimitReader(res.Body, 64<<10))
+	if err != nil || !json.Valid(answer) {
+		return
+	}
+	_, _ = stdout.Write(answer)
 }
 
 func hookCommand() (string, error) {
@@ -82,7 +108,8 @@ func hooks(args []string) error {
   install    Add them to the Claude Code settings file, keeping everything else
   uninstall  Remove them from it
 
-The hooks report what Claude Code does in Orla terminals; anywhere else they do nothing.
+The hooks report what Claude Code does in Orla terminals and bring its permission prompts to
+you, wherever you are; the terminal keeps asking too. Anywhere else they do nothing.
 `)
 	}
 	if len(args) == 0 {

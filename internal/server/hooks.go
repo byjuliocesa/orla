@@ -28,6 +28,17 @@ func (s *Server) claudeHook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid hook payload: "+err.Error())
 		return
 	}
+	if h.Event == cli.HookPermissionRequest {
+		// Held open until the owner answers or the request ends; no content leaves the
+		// decision to the terminal, which shows the same prompt.
+		d, ok := s.sessions.AskInteractive(r.Context(), termID, h)
+		if !ok {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeJSON(w, http.StatusOK, cli.PermissionAnswer(d.Allow, d.Message))
+		return
+	}
 	if err := s.sessions.HandleClaudeHook(r.Context(), termID, h); err != nil {
 		s.log.Error("claude hook", "terminal", termID, "event", h.Event, "err", err)
 		writeError(w, http.StatusInternalServerError, err.Error())

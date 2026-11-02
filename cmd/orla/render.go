@@ -94,10 +94,20 @@ func (r *renderer) render(e events.Event) {
 		}
 	case events.ApprovalRequested:
 		fmt.Println(indent + r.paint("33", "? permission for "+str("tool")) + " " + r.dim(toolSummary(d["input"])))
-		fmt.Println(indent + r.dim("  id "+str("approval_id")+" · session "+e.Session))
+		where := "  id " + str("approval_id") + " · session " + e.Session
+		if t := str("terminal"); t != "" {
+			where += " · also asked in " + t
+		}
+		fmt.Println(indent + r.dim(where))
 	case events.ApprovalResolved:
-		var allowed bool
+		var allowed, withdrawn bool
 		_ = json.Unmarshal(d["allowed"], &allowed)
+		_ = json.Unmarshal(d["withdrawn"], &withdrawn)
+		if withdrawn {
+			// Nobody decided through Orla; the terminal still has the prompt.
+			fmt.Println(indent + "  " + r.dim("withdrawn · "+oneLine(str("message"), 80)))
+			break
+		}
 		verdict := r.paint("31", "denied")
 		if allowed {
 			verdict = r.paint("32", "allowed")

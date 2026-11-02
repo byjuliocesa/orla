@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Julio0Cesar/orla/internal/events"
 )
@@ -43,26 +44,59 @@ const (
 	HookNotification       = "Notification"
 	HookStop               = "Stop"
 	HookSessionEnd         = "SessionEnd"
+	HookPermissionRequest  = "PermissionRequest"
 )
 
 var HookEvents = []string{
 	HookSessionStart, HookUserPromptSubmit, HookPreToolUse, HookPostToolUse,
-	HookPostToolUseFailure, HookNotification, HookStop, HookSessionEnd,
+	HookPostToolUseFailure, HookNotification, HookStop, HookSessionEnd, HookPermissionRequest,
 }
+
+// PermissionHookTimeout is how long Claude Code lets the PermissionRequest hook wait for the
+// owner. It only has to outlast Orla's own wait: the prompt stays answerable in the terminal
+// all along, and a hook that times out leaves it there.
+const PermissionHookTimeout = 15 * time.Minute
 
 // HookSettings is the Claude Code settings fragment that sends every hook event Orla uses to
 // command.
 func HookSettings(command string) map[string]any {
 	hooks := map[string]any{}
 	for _, event := range HookEvents {
-		entry := map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command}}}
+		hook := map[string]any{"type": "command", "command": command}
+		entry := map[string]any{"hooks": []any{hook}}
 		switch event {
 		case HookPreToolUse, HookPostToolUse, HookPostToolUseFailure:
 			entry["matcher"] = "*"
+		case HookPermissionRequest:
+			entry["matcher"] = "*"
+			hook["timeout"] = int(PermissionHookTimeout / time.Second)
 		}
 		hooks[event] = []any{entry}
 	}
 	return map[string]any{"hooks": hooks}
+}
+
+// PermissionAnswer is what a PermissionRequest hook prints to answer the prompt in the user's
+// place.
+func PermissionAnswer(allow bool, message string) map[string]any {
+	decision := map[string]any{"behavior": "allow"}
+	if !allow {
+		decision = map[string]any{"behavior": "deny", "message": DenialMessage(message)}
+	}
+	return map[string]any{"hookSpecificOutput": map[string]any{
+		"hookEventName": HookPermissionRequest, "decision": decision,
+	}}
+}
+
+// DenialMessage is what the agent is told when the owner denies a tool. Claude Code shows it as
+// a hook's words, which the agent rightly doubts; saying where it comes from lets the agent weigh
+// the owner's note.
+func DenialMessage(message string) string {
+	const from = "The user denied this from Orla, their remote approval tool"
+	if message == "" {
+		return from + "."
+	}
+	return from + ". Their note: " + message
 }
 
 // ToolOutput turns a tool response into the text a timeline shows. Bash answers with an object

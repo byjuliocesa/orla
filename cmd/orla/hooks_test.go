@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Julio0Cesar/orla/internal/engine/cli"
 )
 
 const ownSettings = `{
@@ -38,8 +44,8 @@ func TestHooksInstallKeepsTheOwnersSettings(t *testing.T) {
 	if s["model"] != "sonnet" || s["permissions"].(map[string]any)["defaultMode"] != "manual" {
 		t.Fatalf("other settings changed: %s", b)
 	}
-	if n := strings.Count(string(b), cmd[1:len(cmd)-6]); n != 8 {
-		t.Fatalf("orla hook appears %d times, want once per event (8):\n%s", n, b)
+	if n, want := strings.Count(string(b), cmd[1:len(cmd)-6]), len(cli.HookEvents); n != want {
+		t.Fatalf("orla hook appears %d times, want once per event (%d):\n%s", n, want, b)
 	}
 	if !strings.Contains(string(b), "notify-send done") {
 		t.Fatal("the owner's own Stop hook was dropped")
@@ -84,6 +90,51 @@ func TestOnlyOrlaHooksAreRecognized(t *testing.T) {
 	} {
 		if isOrlaHook(cmd) != want {
 			t.Errorf("isOrlaHook(%s) = %v", cmd, !want)
+		}
+	}
+}
+
+// Hook stdout reaches Claude Code: UserPromptSubmit adds it to the prompt, PermissionRequest
+// reads it as the answer. Only a permission answer may be printed.
+func TestHookPrintsOnlyPermissionAnswers(t *testing.T) {
+	answer := `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer hook-token" || r.Header.Get("X-Orla-Terminal") != "term_1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		switch {
+		case strings.Contains(string(b), "withdrawn"):
+			w.WriteHeader(http.StatusNoContent)
+		case strings.Contains(string(b), "broken"):
+			_, _ = io.WriteString(w, "{not json")
+		default:
+			_, _ = io.WriteString(w, answer) // whatever the event: the hook decides what to print
+		}
+	}))
+	defer srv.Close()
+	inTerminal := map[string]string{"ORLA_TERMINAL": "term_1", "ORLA_HOOK_URL": srv.URL, "ORLA_HOOK_TOKEN": "hook-token"}
+
+	cases := []struct {
+		name, payload string
+		env           map[string]string
+		want          string
+	}{
+		{"permission answered", `{"hook_event_name":"PermissionRequest"}`, inTerminal, answer},
+		{"permission left to the terminal", `{"hook_event_name":"PermissionRequest","x":"withdrawn"}`, inTerminal, ""},
+		{"broken answer", `{"hook_event_name":"PermissionRequest","x":"broken"}`, inTerminal, ""},
+		{"prompt", `{"hook_event_name":"UserPromptSubmit","prompt":"hi"}`, inTerminal, ""},
+		{"outside a terminal", `{"hook_event_name":"PermissionRequest"}`, map[string]string{}, ""},
+		{"server gone", `{"hook_event_name":"PermissionRequest"}`, map[string]string{
+			"ORLA_TERMINAL": "term_1", "ORLA_HOOK_URL": "http://127.0.0.1:1/hooks/claude", "ORLA_HOOK_TOKEN": "hook-token",
+		}, ""},
+	}
+	for _, c := range cases {
+		var out bytes.Buffer
+		sendHook(strings.NewReader(c.payload), &out, func(k string) string { return c.env[k] })
+		if out.String() != c.want {
+			t.Errorf("%s: printed %q, want %q", c.name, out.String(), c.want)
 		}
 	}
 }

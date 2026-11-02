@@ -11,33 +11,53 @@ import (
 	"github.com/Julio0Cesar/orla/internal/store"
 )
 
-// defaultApprovalWait is how long a run waits for the owner before a request is denied. The CLI is
-// paused meanwhile, holding its subscription window and the session.
+// defaultApprovalWait is how long a request waits for the owner. A headless run is paused
+// meanwhile, holding its subscription window and the session; then the request is denied. An
+// interactive one is withdrawn instead, and the terminal goes on asking.
 const defaultApprovalWait = 10 * time.Minute
 
-var (
-	ErrNoApproval       = errors.New("no such pending approval")
-	ErrAlreadyDecided   = errors.New("approval already decided")
-	ErrUnknownRunSecret = errors.New("unknown run or secret")
-)
+var ErrNoApproval = errors.New("no such pending approval")
 
 // Decision is the owner's answer to an approval request.
 type Decision struct {
 	Allow   bool   `json:"allow"`
 	Message string `json:"message,omitempty"`
-	// By says where the owner answered: "cli", "web", "whatsapp".
+	// By says where the owner answered: "cli", "web", "whatsapp". Endings that are not an
+	// answer through Orla say "timeout", "cancel", "run" or "terminal".
 	By string `json:"by,omitempty"`
 }
 
 type pending struct {
-	session string
-	run     string
-	answer  chan Decision
+	sess   store.Session
+	run    string
+	callID string
+	// terminal is set when the CLI asks in an Orla terminal, which shows the same prompt.
+	terminal string
+	// ended receives the one ending of the request.
+	ended chan ending
 }
 
-// RequestApproval asks the owner whether a run may use a tool, and waits for the answer. It
-// is what the CLI's permission prompt tool calls. The request is denied when the owner does not
-// answer in time, the run ends, or the CLI stops waiting (ctx).
+// ending is how a request ended.
+type ending struct {
+	Decision
+	// fromOwner: the owner answered through Orla. Otherwise it timed out, its run ended, the
+	// CLI stopped waiting or the prompt was answered in the terminal.
+	fromOwner bool
+	// withdrawn: nobody decided through Orla, and the terminal still asks.
+	withdrawn bool
+}
+
+func denial(by, message string) ending {
+	return ending{Decision: Decision{Allow: false, Message: message, By: by}}
+}
+
+func withdrawal(by, message string) ending {
+	return ending{Decision: Decision{Allow: false, Message: message, By: by}, withdrawn: true}
+}
+
+// RequestApproval asks the owner whether a headless run may use a tool, and waits for the
+// answer. It is what the CLI's permission prompt tool calls. The request is denied when the
+// owner does not answer in time, the run ends, or the CLI stops waiting (ctx).
 func (s *Service) RequestApproval(ctx context.Context, run, tool string, input json.RawMessage, callID string) Decision {
 	s.mu.Lock()
 	ar, ok := s.runSecrets[run]
@@ -50,73 +70,87 @@ func (s *Service) RequestApproval(ctx context.Context, run, tool string, input j
 		return Decision{Allow: false, Message: "session not found"}
 	}
 
-	p := &pending{session: sess.ID, run: run, answer: make(chan Decision, 1)}
+	record := context.WithoutCancel(ctx)
+	p := &pending{sess: sess, run: run, callID: callID, ended: make(chan ending, 1)}
+	approvalID := s.openApproval(record, p, tool, input)
+	select {
+	case e := <-p.ended:
+		return e.Decision
+	case <-time.After(s.approvalWait):
+		s.endApproval(record, approvalID, nil, denial("timeout", "no answer from the owner in time"))
+	case <-ar.ctx.Done():
+		s.endApproval(record, approvalID, nil, denial("cancel", "the run was cancelled"))
+	case <-ctx.Done():
+		s.endApproval(record, approvalID, nil, denial("cancel", "the CLI stopped waiting"))
+	}
+	// Whichever ending came first holds, even an answer that raced the timeout.
+	return (<-p.ended).Decision
+}
+
+// Resolve answers a pending approval of a session.
+func (s *Service) Resolve(ctx context.Context, session, approvalID string, d Decision) error {
+	ofSession := func(p *pending) bool { return p.sess.ID == session }
+	if !s.endApproval(context.WithoutCancel(ctx), approvalID, ofSession, ending{Decision: d, fromOwner: true}) {
+		return ErrNoApproval
+	}
+	return nil
+}
+
+// openApproval records a request and announces it.
+func (s *Service) openApproval(ctx context.Context, p *pending, tool string, input json.RawMessage) string {
 	approvalID := id.New("apr")
 	s.mu.Lock()
 	s.approvals[approvalID] = p
 	s.mu.Unlock()
 
-	record := context.WithoutCancel(ctx)
-	s.publish(record, sess, run, events.ApprovalRequested, map[string]any{
-		"approval_id": approvalID, "tool": tool, "input": input, "call_id": callID,
+	data := map[string]any{
+		"approval_id": approvalID, "tool": tool, "input": input, "call_id": p.callID,
 		"expires_at": time.Now().Add(s.approvalWait).UTC(),
-	})
-
-	var d Decision
-	answered := false
-	select {
-	case d = <-p.answer:
-		answered = true
-	case <-time.After(s.approvalWait):
-		d = Decision{Allow: false, Message: "no answer from the owner in time", By: "timeout"}
-	case <-ar.ctx.Done():
-		d = Decision{Allow: false, Message: "the run was cancelled", By: "cancel"}
-	case <-ctx.Done():
-		d = Decision{Allow: false, Message: "the CLI stopped waiting", By: "cancel"}
 	}
-
-	if answered {
-		return d // Resolve took the request out and published the answer
+	if p.terminal != "" {
+		data["terminal"] = p.terminal
 	}
-	s.mu.Lock()
-	_, unanswered := s.approvals[approvalID]
-	delete(s.approvals, approvalID)
-	s.mu.Unlock()
-	if !unanswered {
-		// The owner answered as time ran out; Resolve took the request and published that
-		// answer, so it is the one that holds.
-		return <-p.answer
-	}
-	s.publish(record, sess, run, events.ApprovalResolved, map[string]any{
-		"approval_id": approvalID, "allowed": false, "by": d.By, "message": d.Message,
-	})
-	return d
+	s.publish(ctx, p.sess, p.run, events.ApprovalRequested, data)
+	return approvalID
 }
 
-// Resolve answers a pending approval of a session.
-func (s *Service) Resolve(ctx context.Context, session, approvalID string, d Decision) error {
+// endApproval ends a pending request, if it is still pending and match accepts it. Each request
+// is taken out at once, so of endings that race only the first counts.
+func (s *Service) endApproval(ctx context.Context, approvalID string, match func(*pending) bool, e ending) bool {
 	s.mu.Lock()
 	p, ok := s.approvals[approvalID]
-	if ok && p.session != session {
+	if ok && match != nil && !match(p) {
 		ok = false
 	}
 	if ok {
-		// Taken out at once, so of two answers racing only the first counts.
 		delete(s.approvals, approvalID)
 	}
 	s.mu.Unlock()
 	if !ok {
-		return ErrNoApproval
+		return false
 	}
-	sess, err := s.store.Session(ctx, session)
-	if err != nil {
-		return err
+	data := map[string]any{"approval_id": approvalID, "allowed": e.Allow, "by": e.By, "message": e.Message}
+	if e.withdrawn {
+		data["withdrawn"] = true
 	}
-	s.publish(context.WithoutCancel(ctx), sess, p.run, events.ApprovalResolved, map[string]any{
-		"approval_id": approvalID, "allowed": d.Allow, "by": d.By, "message": d.Message,
-	})
-	p.answer <- d
-	return nil
+	s.publish(ctx, p.sess, p.run, events.ApprovalResolved, data)
+	p.ended <- e
+	return true
+}
+
+// endApprovalsWhere ends every pending request match accepts.
+func (s *Service) endApprovalsWhere(ctx context.Context, match func(*pending) bool, e ending) {
+	s.mu.Lock()
+	var ids []string
+	for approvalID, p := range s.approvals {
+		if match(p) {
+			ids = append(ids, approvalID)
+		}
+	}
+	s.mu.Unlock()
+	for _, approvalID := range ids {
+		s.endApproval(ctx, approvalID, match, e)
+	}
 }
 
 // runAccess is what a run's MCP endpoint is checked against.

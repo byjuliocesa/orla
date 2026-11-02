@@ -60,6 +60,9 @@ type Service struct {
 	// stopping holds interactive runs past their Stop, waiting for the transcript. Guarded by
 	// hookMu.
 	stopping map[string]bool
+	// calls are the tool calls of interactive runs waiting for their result, by session id.
+	// Guarded by hookMu.
+	calls map[string][]openCall
 }
 
 type active struct {
@@ -71,7 +74,8 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{
 		log: log, store: st, bus: bus, runners: runners,
-		ctx: ctx, cancel: cancel, active: map[string]*active{}, stopping: map[string]bool{},
+		ctx: ctx, cancel: cancel, active: map[string]*active{},
+		stopping: map[string]bool{}, calls: map[string][]openCall{},
 		runSecrets: map[string]runAccess{}, approvals: map[string]*pending{},
 		approvalWait: defaultApprovalWait,
 	}

@@ -48,11 +48,9 @@ func (s *Server) runMCP(w http.ResponseWriter, r *http.Request) {
 			}
 			d := s.sessions.RequestApproval(ctx, run, in.ToolName, in.Input, in.ToolUseID)
 			// The answer format Claude Code expects from a permission prompt tool.
-			answer := map[string]any{"behavior": "deny", "message": d.Message}
+			answer := map[string]any{"behavior": "deny", "message": cli.DenialMessage(d.Message)}
 			if d.Allow {
 				answer = map[string]any{"behavior": "allow", "updatedInput": in.Input}
-			} else if d.Message == "" {
-				answer["message"] = "The owner denied this."
 			}
 			b, _ := json.Marshal(answer)
 			return string(b), false
