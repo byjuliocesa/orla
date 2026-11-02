@@ -92,6 +92,21 @@ func (r *renderer) render(e events.Event) {
 				r.total = append(r.total, fmt.Sprintf("≈$%.4f at API prices", num("list_cost_usd")))
 			}
 		}
+	case events.ApprovalRequested:
+		fmt.Println(indent + r.paint("33", "? permission for "+str("tool")) + " " + r.dim(toolSummary(d["input"])))
+		fmt.Println(indent + r.dim("  id "+str("approval_id")+" · session "+e.Session))
+	case events.ApprovalResolved:
+		var allowed bool
+		_ = json.Unmarshal(d["allowed"], &allowed)
+		verdict := r.paint("31", "denied")
+		if allowed {
+			verdict = r.paint("32", "allowed")
+		}
+		note := ""
+		if m := str("message"); m != "" && !allowed {
+			note = " · " + oneLine(m, 80)
+		}
+		fmt.Println(indent + "  " + verdict + r.dim(" by "+str("by")+note))
 	case events.Status:
 		switch str("state") {
 		case "waiting":

@@ -61,6 +61,7 @@ func serve(args []string) error {
 	sessions := session.NewService(log, db, bus, map[string]session.Runner{
 		"claude": cli.Claude{Path: *claudePath},
 	})
+	sessions.ApprovalsAt("http://" + *addr + "/mcp/runs/")
 	if err := sessions.Recover(ctx); err != nil {
 		return fmt.Errorf("recovering runs: %w", err)
 	}

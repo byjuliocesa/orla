@@ -17,6 +17,7 @@ Commands:
   run "prompt"          Run Claude Code on a task and follow its steps
   sessions              List agent sessions
   watch [session]       Follow a session's steps live (default: the latest session)
+  approve <s> <a>       Answer a permission request (-deny to refuse)
   hooks                 Show what Claude Code does in Orla terminals (install, uninstall, print)
 
 Run "orla <command> -h" for the flags of a command.
@@ -42,6 +43,8 @@ func main() {
 		err = run(args)
 	case "sessions":
 		err = sessions(args)
+	case "approve":
+		err = approve(args)
 	case "watch":
 		err = watch(args)
 	case "hooks":

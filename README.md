@@ -56,6 +56,16 @@ it happens:
 ./orla sessions
 ```
 
+When Claude Code needs permission in a headless run, it asks you through Orla. `orla run` asks
+in the terminal; any other device answers with `orla approve`, and `orla watch` shows the
+request. Unanswered requests are denied after 10 minutes, and when the run is cancelled.
+
+```bash
+./orla run -mode manual "clean up the build folder"
+./orla approve ses_01... apr_01...                     # allow
+./orla approve -deny -m "keep build/" ses_01... apr_01...
+```
+
 Claude Code typed into an Orla terminal reports its steps too, once its hooks are installed:
 
 ```bash
@@ -90,6 +100,7 @@ Every route under `/v1` needs `Authorization: Bearer <token>`.
 | `POST /v1/sessions/{id}/runs` | Start a run: `{"prompt": "...", "permission_mode": "...", "model": "..."}`. 409 while one is in progress. |
 | `POST /v1/sessions/{id}/cancel` | Cancel the run in progress. |
 | `GET /v1/sessions/{id}/events` | Server-Sent Events, from `?after=<seq>` or `Last-Event-ID`. See [docs/events.md](docs/events.md). |
+| `POST /v1/sessions/{id}/approvals/{approval}` | Answer a permission request: `{"allow": true, "message": "...", "by": "web"}`. 404 once answered or expired. |
 | `GET /v1/terminals/{id}/stream` | WebSocket. Binary messages are terminal bytes both ways. Text messages are control: `{"type":"resize","cols":..,"rows":..}` from the client, `{"type":"exit","code":..}` from the server. |
 
 ## License

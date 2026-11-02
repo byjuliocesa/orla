@@ -54,6 +54,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("POST /v1/sessions/{id}/runs", s.startRun)
 	api.HandleFunc("POST /v1/sessions/{id}/cancel", s.cancelRun)
 	api.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)
+	api.HandleFunc("POST /v1/sessions/{id}/approvals/{approval}", s.resolveApproval)
 
 	mux := http.NewServeMux()
 	// Unauthenticated on purpose: it says only that the process is up, for health checks and
@@ -63,6 +64,7 @@ func New(d Deps) http.Handler {
 	})
 	mux.Handle("/v1/", auth.Require(d.Token, api))
 	mux.HandleFunc("POST /hooks/claude", s.claudeHook)
+	mux.HandleFunc("/mcp/runs/{run}", s.runMCP)
 	return mux
 }
 

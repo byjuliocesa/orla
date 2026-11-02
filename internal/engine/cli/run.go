@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,7 +40,22 @@ type Spec struct {
 	// CLI, which may well be bypassPermissions.
 	PermissionMode string
 	Model          string
+	// Approvals, when set, sends the CLI's permission prompts to Orla instead of refusing them.
+	Approvals *Approvals
 }
+
+// Approvals is the MCP endpoint that answers a run's permission prompts.
+type Approvals struct {
+	URL   string
+	Token string
+}
+
+// ApprovalServer and ApprovalTool name the MCP server and tool Orla offers a run; Claude Code
+// calls the tool mcp__<server>__<tool>.
+const (
+	ApprovalServer = "orla"
+	ApprovalTool   = "approve"
+)
 
 // Claude runs Claude Code headless. It uses whatever account the CLI is logged into; Orla
 // never sees those credentials.
@@ -58,6 +74,16 @@ func (c Claude) args(spec Spec) []string {
 	}
 	if spec.Model != "" {
 		args = append(args, "--model", spec.Model)
+	}
+	if a := spec.Approvals; a != nil {
+		config, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
+			ApprovalServer: map[string]any{
+				"type": "http", "url": a.URL,
+				"headers": map[string]string{"Authorization": "Bearer " + a.Token},
+			},
+		}})
+		args = append(args, "--mcp-config", string(config),
+			"--permission-prompt-tool", "mcp__"+ApprovalServer+"__"+ApprovalTool)
 	}
 	return args
 }

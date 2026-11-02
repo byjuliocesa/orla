@@ -130,6 +130,11 @@ func run(args []string) error {
 		} else {
 			r.render(e)
 		}
+		if e.Type == events.ApprovalRequested && !*raw {
+			// Asked here, where the run was started; any other client may answer first, in
+			// which case this answer is refused and the run goes on with the other.
+			go askApproval(c, sess.ID, e)
+		}
 		if e.Type == events.RunFinished {
 			if !*raw {
 				fmt.Printf("%s\n", r.dim(`continue: orla run -session `+sess.ID+` "..."`))
@@ -216,4 +221,42 @@ func watch(args []string) error {
 		}
 	}
 	return errors.New("event stream closed; run watch again to resume")
+}
+
+func askApproval(c *client, session string, e events.Event) {
+	var d struct {
+		ApprovalID string `json:"approval_id"`
+		Tool       string `json:"tool"`
+	}
+	_ = json.Unmarshal(e.Data, &d)
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  answer with: orla approve %s %s [-deny]\n", session, d.ApprovalID)
+		return
+	}
+	defer tty.Close()
+	fmt.Fprintf(os.Stderr, "  allow %s? [y/N] ", d.Tool)
+	answer, _ := bufio.NewReader(tty).ReadString('\n')
+	allow := strings.EqualFold(strings.TrimSpace(answer), "y") || strings.EqualFold(strings.TrimSpace(answer), "yes")
+	if err := c.do("POST", "/v1/sessions/"+session+"/approvals/"+d.ApprovalID,
+		map[string]any{"allow": allow, "by": "cli"}, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "  not recorded:", err)
+	}
+}
+
+// approve answers an approval request from anywhere: another terminal, a phone over SSH.
+func approve(args []string) error {
+	fs, connect := clientFlags("approve")
+	deny := fs.Bool("deny", false, "deny instead of allowing")
+	message := fs.String("m", "", "reason given to the agent when denying")
+	_ = fs.Parse(args)
+	if fs.NArg() != 2 {
+		return errors.New("usage: orla approve <session> <approval> [-deny] [-m reason]")
+	}
+	c, err := connect()
+	if err != nil {
+		return err
+	}
+	return c.do("POST", "/v1/sessions/"+fs.Arg(0)+"/approvals/"+fs.Arg(1),
+		map[string]any{"allow": !*deny, "message": *message, "by": "cli"}, nil)
 }

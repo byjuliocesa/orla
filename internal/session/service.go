@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Julio0Cesar/orla/internal/auth"
 	"github.com/Julio0Cesar/orla/internal/engine/cli"
 	"github.com/Julio0Cesar/orla/internal/events"
 	"github.com/Julio0Cesar/orla/internal/id"
@@ -46,6 +47,14 @@ type Service struct {
 
 	mu     sync.Mutex
 	active map[string]*active // by session id
+	// runSecrets and approvals are guarded by mu.
+	runSecrets map[string]runAccess // by run id, while the run is in progress
+	approvals  map[string]*pending  // by approval id
+
+	// approvalsURL is where a run's MCP endpoint lives, followed by the run id. Empty leaves
+	// permission prompts to the CLI's own settings.
+	approvalsURL string
+	approvalWait time.Duration
 
 	hookMu sync.Mutex
 	// stopping holds interactive runs past their Stop, waiting for the transcript. Guarded by
@@ -63,8 +72,14 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 	return &Service{
 		log: log, store: st, bus: bus, runners: runners,
 		ctx: ctx, cancel: cancel, active: map[string]*active{}, stopping: map[string]bool{},
+		runSecrets: map[string]runAccess{}, approvals: map[string]*pending{},
+		approvalWait: defaultApprovalWait,
 	}
 }
+
+// ApprovalsAt has headless runs send permission prompts to Orla, at url followed by the run id.
+// Call it before the first run.
+func (s *Service) ApprovalsAt(url string) { s.approvalsURL = url }
 
 // Recover closes runs left "running" by a previous process. Their CLI died with it, so they
 // end as failed, with the run.finished event clients wait for.
@@ -172,6 +187,13 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 		spec := cli.Spec{
 			Run: run.ID, Cwd: sess.Cwd, Prompt: opts.Prompt, Resume: sess.NativeSession,
 			PermissionMode: opts.PermissionMode, Model: opts.Model,
+		}
+		if s.approvalsURL != "" {
+			// The secret ties the MCP endpoint to this run: a run can only ask for itself.
+			secret := auth.NewSecret()
+			s.storeRunAccess(run.ID, sess, secret, runCtx)
+			defer s.dropRunAccess(run.ID)
+			spec.Approvals = &cli.Approvals{URL: s.approvalsURL + run.ID, Token: secret}
 		}
 		// Recording is never cancelled: a run stopped midway, or by shutdown, must still store
 		// what it did and how it ended.

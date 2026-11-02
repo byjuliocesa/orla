@@ -40,13 +40,19 @@ func fakeClaude(t *testing.T) cli.Claude {
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	srv, _ := newServerWith(t, fakeClaude(t))
+	return srv
+}
+
+func newServerWith(t *testing.T, claude cli.Claude) (*httptest.Server, *session.Service) {
+	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "orla.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	bus := events.NewBus(st)
-	sessions := session.NewService(log, st, bus, map[string]session.Runner{"claude": fakeClaude(t)})
+	sessions := session.NewService(log, st, bus, map[string]session.Runner{"claude": claude})
 	terminals := terminal.NewManager()
 	srv := httptest.NewServer(New(Deps{
 		Log: log, Token: testToken, Terminals: terminals, Store: st, Bus: bus, Sessions: sessions,
@@ -58,7 +64,8 @@ func newServer(t *testing.T) *httptest.Server {
 		sessions.Close()
 		st.Close()
 	})
-	return srv
+	sessions.ApprovalsAt(srv.URL + "/mcp/runs/")
+	return srv, sessions
 }
 
 func request(t *testing.T, srv *httptest.Server, method, path, token string, body any) *http.Response {
