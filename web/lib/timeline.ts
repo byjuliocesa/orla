@@ -25,6 +25,8 @@ export interface Approval {
 
 export interface ToolStep {
   kind: 'tool';
+  /** Seq of the event that made the step, to tell steps that arrived live. */
+  seq: number;
   callId: string;
   name: string;
   input: unknown;
@@ -37,18 +39,21 @@ export interface ToolStep {
 
 export interface MessageStep {
   kind: 'message';
+  seq: number;
   text: string;
   at: string;
 }
 
 export interface ApprovalStep {
   kind: 'approval';
+  seq: number;
   approval: Approval;
   at: string;
 }
 
 export interface ErrorStep {
   kind: 'error';
+  seq: number;
   message: string;
   at: string;
 }
@@ -69,6 +74,8 @@ export interface RunView {
   interactive: boolean;
   terminal?: string;
   permissionMode?: string;
+  /** The model that answered, from the responses' usage. */
+  model?: string;
   started: string;
   finished?: string;
   status: RunStatus;
@@ -151,7 +158,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
       }
       case 'message.assistant': {
         const r = runOf(e);
-        if (r && str(d.text).trim()) place(r, d, { kind: 'message', text: str(d.text), at: e.time });
+        if (r && str(d.text).trim()) place(r, d, { kind: 'message', seq: e.seq, text: str(d.text), at: e.time });
         break;
       }
       case 'tool.call': {
@@ -159,6 +166,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
         if (!r) break;
         const step: ToolStep = {
           kind: 'tool',
+          seq: e.seq,
           callId: str(d.call_id),
           name: str(d.name),
           input: d.input,
@@ -196,7 +204,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
         if (step) step.approval = a;
         else {
           const r = runOf(e);
-          if (r) r.steps.push({ kind: 'approval', approval: a, at: e.time });
+          if (r) r.steps.push({ kind: 'approval', seq: e.seq, approval: a, at: e.time });
         }
         break;
       }
@@ -221,11 +229,14 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
         const r = runOf(e);
         if (!r) break;
         if (scope === 'step') {
+          if (str(d.model)) r.model = str(d.model);
           r.live.input += num(d.input_tokens);
           r.live.output += num(d.output_tokens);
           r.live.cacheRead += num(d.cache_read_tokens);
           r.live.cacheWrite += num(d.cache_write_tokens);
         } else if (scope === 'run') {
+          const models = Array.isArray(d.models) ? d.models.filter((m) => typeof m === 'string' && m) : [];
+          if (!r.model && models.length > 0) r.model = models.join(', ');
           r.usage = {
             input: num(d.input_tokens),
             output: num(d.output_tokens),
@@ -240,7 +251,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
       }
       case 'error': {
         const r = runOf(e);
-        if (r) r.steps.push({ kind: 'error', message: str(d.message), at: e.time });
+        if (r) r.steps.push({ kind: 'error', seq: e.seq, message: str(d.message), at: e.time });
         break;
       }
       case 'status':

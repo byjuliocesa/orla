@@ -197,7 +197,8 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 			secret := auth.NewSecret()
 			s.storeRunAccess(run.ID, sess, secret, runCtx)
 			defer s.dropRunAccess(run.ID)
-			spec.Approvals = &cli.Approvals{URL: s.approvalsURL + run.ID, Token: secret}
+			// The CLI outwaits Orla, so a request ends by Orla's rule, which the owner was told.
+			spec.Approvals = &cli.Approvals{URL: s.approvalsURL + run.ID, Token: secret, Wait: s.approvalWait + time.Minute}
 		}
 		// Recording is never cancelled: a run stopped midway, or by shutdown, must still store
 		// what it did and how it ended.

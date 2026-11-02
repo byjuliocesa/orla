@@ -113,3 +113,26 @@ export function useSessionTimeline(session: string | undefined): { timeline: Tim
   const timeline = useMemo(() => buildTimeline(events), [events]);
   return { timeline, events, live };
 }
+
+/** The current time, ticking, for clocks of things in progress. */
+export function useNow(every: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), every);
+    return () => clearInterval(t);
+  }, [every]);
+  return now;
+}
+
+/** Whether a media query matches, following changes. False until mounted. */
+export function useMedia(query: string): boolean {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const read = () => setMatch(mq.matches);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, [query]);
+  return match;
+}

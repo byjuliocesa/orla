@@ -29,6 +29,8 @@ export function TerminalView({ id, theme, fontFamily }: { id: string; theme: Ter
     void (async () => {
       // xterm touches the DOM at import; the page is prerendered without one.
       const [{ Terminal }, { FitAddon }] = await Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit')]);
+      // xterm measures the cell size once; measuring a fallback font misaligns every glyph.
+      await document.fonts?.load(`13px ${fontFamily}`).catch(() => {});
       if (disposed || !host.current) return;
       const term = new Terminal({
         theme,
@@ -107,10 +109,14 @@ export function TerminalView({ id, theme, fontFamily }: { id: string; theme: Ter
   }, [id]);
 
   return (
-    <div className="terminal" data-phase={phase}>
-      <div ref={host} className="terminal-screen" />
-      {phase === 'exited' && <p className="terminal-note">Process exited{exitCode !== null ? ` with code ${exitCode}` : ''}.</p>}
-      {phase === 'gone' && <p className="terminal-note">This terminal is closed.</p>}
+    <div className="term-pane" data-phase={phase}>
+      {/* xterm makes the element it opens in its own root and positions inside it absolutely,
+          so the margin lives on a wrapper. */}
+      <div className="term-screen">
+        <div ref={host} className="term-host" />
+      </div>
+      {phase === 'exited' && <p className="term-note">Process exited{exitCode !== null ? ` with code ${exitCode}` : ''}.</p>}
+      {phase === 'gone' && <p className="term-note">This terminal is closed.</p>}
     </div>
   );
 }

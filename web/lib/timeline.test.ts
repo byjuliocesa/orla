@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { outcomeText, toolSummary } from './format';
 import { buildTimeline } from './timeline';
 import type { OrlaEvent } from './types';
 
@@ -63,5 +64,23 @@ describe('buildTimeline', () => {
     ]);
     expect(t.pending).toEqual([]);
     expect(t.runs[0]!.status).toBe('running');
+  });
+});
+
+
+describe('words for outcomes and steps', () => {
+  it('says who decided, or why nobody did', () => {
+    expect(outcomeText({ allowed: false, by: 'web', message: 'use mkdir', withdrawn: false })).toBe('Denied from web: use mkdir');
+    expect(outcomeText({ allowed: true, by: 'terminal', withdrawn: false })).toBe('Allowed in the terminal');
+    expect(outcomeText({ allowed: false, by: 'cancel', message: 'the run was cancelled', withdrawn: false })).toBe('Denied: the run was cancelled');
+    expect(outcomeText({ allowed: false, by: 'timeout', message: 'no answer in time', withdrawn: true })).toBe('No longer asking here: no answer in time');
+  });
+
+  it('reads paths inside the session folder relative to it', () => {
+    expect(toolSummary({ command: 'cat -n /srv/shop/limit.go' }, '/srv/shop')).toBe('cat -n limit.go');
+    expect(toolSummary({ file_path: '/srv/shop/internal/a.go' }, '/srv/shop/')).toBe('internal/a.go');
+    expect(toolSummary({ file_path: '/etc/hosts' }, '/srv/shop')).toBe('/etc/hosts');
+    expect(toolSummary({ command: 'ls -la /srv/shop' }, '/srv/shop')).toBe('ls -la .');
+    expect(toolSummary({ command: 'ls /srv/shopping' }, '/srv/shop')).toBe('ls /srv/shopping');
   });
 });

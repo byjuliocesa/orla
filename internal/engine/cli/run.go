@@ -48,6 +48,10 @@ type Spec struct {
 type Approvals struct {
 	URL   string
 	Token string
+	// Wait is how long the CLI waits for one answer. Claude Code gives up on an MCP tool call
+	// after 60 seconds unless the server entry says otherwise, and a request the CLI gave up on
+	// reaches the agent as a denial while the owner may still be reading it.
+	Wait time.Duration
 }
 
 // ApprovalServer and ApprovalTool name the MCP server and tool Orla offers a run; Claude Code
@@ -80,6 +84,7 @@ func (c Claude) args(spec Spec) []string {
 			ApprovalServer: map[string]any{
 				"type": "http", "url": a.URL,
 				"headers": map[string]string{"Authorization": "Bearer " + a.Token},
+				"timeout": a.Wait.Milliseconds(),
 			},
 		}})
 		args = append(args, "--mcp-config", string(config),

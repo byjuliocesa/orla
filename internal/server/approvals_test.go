@@ -104,6 +104,10 @@ func TestRunMCPEndpointIsBoundToItsRun(t *testing.T) {
 		!strings.Contains(string(args), "--permission-prompt-tool\nmcp__orla__approve") {
 		t.Fatalf("CLI args miss the approval endpoint:\n%s", args)
 	}
+	// Claude Code drops an MCP call after 60 s by default; it must outwait Orla's 10 minutes.
+	if !strings.Contains(string(args), `"timeout":660000`) {
+		t.Fatalf("CLI is not told to wait for the owner:\n%s", args)
+	}
 
 	code, res := rpc(t, ctx, srv, runA, secretA, init)
 	if code != http.StatusOK || res["result"].(map[string]any)["protocolVersion"] != "2025-11-25" {
