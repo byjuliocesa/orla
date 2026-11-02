@@ -2,12 +2,11 @@ package events
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"sync"
 	"time"
 
-	"github.com/oklog/ulid/v2"
+	"github.com/Julio0Cesar/orla/internal/id"
 )
 
 // Log is where published events are kept. Append assigns the next seq of the event's session.
@@ -52,7 +51,7 @@ func (b *Bus) Publish(ctx context.Context, e Event) (Event, error) {
 		return Event{}, errors.New("events: session and type are required")
 	}
 	if e.ID == "" {
-		e.ID = ulid.MustNew(ulid.Now(), rand.Reader).String()
+		e.ID = id.New("evt")
 	}
 	if e.Time.IsZero() {
 		e.Time = time.Now().UTC()

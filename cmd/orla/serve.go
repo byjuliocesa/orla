@@ -15,7 +15,10 @@ import (
 	"time"
 
 	"github.com/Julio0Cesar/orla/internal/auth"
+	"github.com/Julio0Cesar/orla/internal/engine/cli"
+	"github.com/Julio0Cesar/orla/internal/events"
 	"github.com/Julio0Cesar/orla/internal/server"
+	"github.com/Julio0Cesar/orla/internal/session"
 	"github.com/Julio0Cesar/orla/internal/store"
 	"github.com/Julio0Cesar/orla/internal/terminal"
 )
@@ -26,6 +29,7 @@ func serve(args []string) error {
 	// must be a deliberate choice.
 	addr := fs.String("addr", defaultAddr, "address to listen on")
 	dataDir := fs.String("data", defaultDataDir(), "directory for the database and token")
+	claudePath := fs.String("claude", "claude", "the Claude Code executable")
 	_ = fs.Parse(args)
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -47,18 +51,31 @@ func serve(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Nothing writes events yet; opening the store now applies migrations and fails early on a
-	// bad data directory instead of on the first run.
 	db, err := store.Open(ctx, filepath.Join(*dataDir, "orla.db"))
 	if err != nil {
 		return fmt.Errorf("database: %w", err)
 	}
 	defer db.Close()
 
+	bus := events.NewBus(db)
+	sessions := session.NewService(log, db, bus, map[string]session.Runner{
+		"claude": cli.Claude{Path: *claudePath},
+	})
+	if err := sessions.Recover(ctx); err != nil {
+		return fmt.Errorf("recovering runs: %w", err)
+	}
 	terminals := terminal.NewManager()
+
+	// Every request derives from this, so ending it on shutdown ends the event streams, which
+	// otherwise stay open until the client leaves: Shutdown does not cancel requests.
+	requests, endRequests := context.WithCancel(context.Background())
+	defer endRequests()
 	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           server.New(log, token, terminals),
+		Addr:        *addr,
+		BaseContext: func(net.Listener) context.Context { return requests },
+		Handler: server.New(server.Deps{
+			Log: log, Token: token, Terminals: terminals, Store: db, Bus: bus, Sessions: sessions,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -79,7 +96,12 @@ func serve(args []string) error {
 	log.Info("shutting down")
 	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// Terminals first: their streams are long-lived connections Shutdown would wait on.
+	// Runs record how they ended before the streams that report them close.
+	sessions.Close()
 	terminals.CloseAll()
-	return srv.Shutdown(shutdown)
+	endRequests()
+	if err := srv.Shutdown(shutdown); err != nil {
+		return srv.Close()
+	}
+	return nil
 }

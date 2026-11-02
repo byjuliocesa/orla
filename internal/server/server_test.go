@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,24 +9,54 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 
+	"github.com/Julio0Cesar/orla/internal/engine/cli"
+	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/Julio0Cesar/orla/internal/session"
+	"github.com/Julio0Cesar/orla/internal/store"
 	"github.com/Julio0Cesar/orla/internal/terminal"
 )
 
 const testToken = "orla_test-token-not-a-secret"
 
+// fakeClaude stands in for the claude CLI: it prints a recorded stream-json run.
+func fakeClaude(t *testing.T) cli.Claude {
+	t.Helper()
+	fixture, _ := filepath.Abs("../engine/cli/testdata/claude-tool-run.jsonl")
+	path := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\ncat "+fixture+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return cli.Claude{Path: path}
+}
+
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "orla.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus := events.NewBus(st)
+	sessions := session.NewService(log, st, bus, map[string]session.Runner{"claude": fakeClaude(t)})
 	terminals := terminal.NewManager()
-	srv := httptest.NewServer(New(slog.New(slog.NewTextHandler(io.Discard, nil)), testToken, terminals))
+	srv := httptest.NewServer(New(Deps{
+		Log: log, Token: testToken, Terminals: terminals, Store: st, Bus: bus, Sessions: sessions,
+	}))
 	t.Cleanup(func() {
-		terminals.CloseAll()
+		srv.CloseClientConnections()
 		srv.Close()
+		terminals.CloseAll()
+		sessions.Close()
+		st.Close()
 	})
 	return srv
 }
@@ -61,6 +92,12 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"POST", "/v1/terminals"},
 		{"DELETE", "/v1/terminals/term_x"},
 		{"GET", "/v1/terminals/term_x/stream"},
+		{"GET", "/v1/sessions"},
+		{"POST", "/v1/sessions"},
+		{"GET", "/v1/sessions/ses_x"},
+		{"POST", "/v1/sessions/ses_x/runs"},
+		{"POST", "/v1/sessions/ses_x/cancel"},
+		{"GET", "/v1/sessions/ses_x/events"},
 		{"GET", "/v1/anything"},
 	}
 	for _, token := range []string{"", "wrong", testToken + "x"} {
@@ -160,5 +197,119 @@ func TestTerminalOutlivesItsStream(t *testing.T) {
 			}
 			return
 		}
+	}
+}
+
+// readSSE reads events from an SSE response until one of type until arrives.
+func readSSE(t *testing.T, body io.Reader, until string) []events.Event {
+	t.Helper()
+	var got []events.Event
+	sc := bufio.NewScanner(body)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var e events.Event
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &e); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, e)
+		if e.Type == until {
+			return got
+		}
+	}
+	t.Fatalf("stream ended before %s; got %d events", until, len(got))
+	return nil
+}
+
+func streamEvents(t *testing.T, ctx context.Context, srv *httptest.Server, session, lastID string) io.ReadCloser {
+	t.Helper()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/v1/sessions/"+session+"/events", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	if lastID != "" {
+		req.Header.Set("Last-Event-ID", lastID)
+	}
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("events stream = %d %s", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	return res.Body
+}
+
+// A run's steps reach the client as they happen, and a client that reconnects with the last
+// id it saw gets only what came after.
+func TestRunEventsStreamAndResume(t *testing.T) {
+	srv := newServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var sess struct{ ID string }
+	res := request(t, srv, "POST", "/v1/sessions", testToken, map[string]string{"agent": "claude", "cwd": t.TempDir()})
+	_ = json.NewDecoder(res.Body).Decode(&sess)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create session = %d", res.StatusCode)
+	}
+
+	body := streamEvents(t, ctx, srv, sess.ID, "")
+	if res := request(t, srv, "POST", "/v1/sessions/"+sess.ID+"/runs", testToken,
+		map[string]string{"prompt": "run it"}); res.StatusCode != http.StatusAccepted {
+		t.Fatalf("start run = %d", res.StatusCode)
+	}
+	first := readSSE(t, body, events.RunFinished)
+	body.Close()
+
+	types := map[string]int{}
+	for i, e := range first {
+		types[e.Type]++
+		if e.Seq != int64(i+1) {
+			t.Fatalf("event %d has seq %d", i, e.Seq)
+		}
+	}
+	if first[0].Type != events.RunStarted || types[events.ToolCall] != 1 || types[events.ToolResult] != 2 {
+		t.Fatalf("event types = %v", types)
+	}
+	if first[len(first)-1].Source.NativeSession == "" {
+		t.Fatal("events do not carry the CLI session id")
+	}
+
+	last := first[len(first)-1].Seq
+	if res := request(t, srv, "POST", "/v1/sessions/"+sess.ID+"/runs", testToken,
+		map[string]string{"prompt": "again"}); res.StatusCode != http.StatusAccepted {
+		t.Fatalf("second run = %d", res.StatusCode)
+	}
+	body = streamEvents(t, ctx, srv, sess.ID, strconv.FormatInt(last, 10))
+	defer body.Close()
+	second := readSSE(t, body, events.RunFinished)
+	if second[0].Seq != last+1 || second[0].Type != events.RunStarted {
+		t.Fatalf("resumed stream starts at seq %d (%s), want %d", second[0].Seq, second[0].Type, last+1)
+	}
+}
+
+func TestRunRequestsAreValidated(t *testing.T) {
+	srv := newServer(t)
+	if res := request(t, srv, "POST", "/v1/sessions", testToken,
+		map[string]string{"cwd": "/no/such/dir"}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("missing cwd = %d", res.StatusCode)
+	}
+	if res := request(t, srv, "POST", "/v1/sessions", testToken,
+		map[string]string{"agent": "nope", "cwd": t.TempDir()}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("unknown agent = %d", res.StatusCode)
+	}
+	if res := request(t, srv, "POST", "/v1/sessions/ses_missing/runs", testToken,
+		map[string]string{"prompt": "x"}); res.StatusCode != http.StatusNotFound {
+		t.Errorf("missing session = %d", res.StatusCode)
+	}
+
+	var sess struct{ ID string }
+	_ = json.NewDecoder(request(t, srv, "POST", "/v1/sessions", testToken,
+		map[string]string{"cwd": t.TempDir()}).Body).Decode(&sess)
+	if res := request(t, srv, "POST", "/v1/sessions/"+sess.ID+"/runs", testToken,
+		map[string]string{"prompt": "x", "permission_mode": "yolo"}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("bad permission mode = %d", res.StatusCode)
 	}
 }

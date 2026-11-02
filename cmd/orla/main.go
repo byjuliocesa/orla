@@ -14,6 +14,8 @@ Commands:
   attach [id] [-- cmd]  Attach to a terminal; without an id, open a new one here
   ls                    List running terminals
   close <id>            End a terminal and everything it started
+  run "prompt"          Run Claude Code on a task and follow its steps
+  sessions              List agent sessions
 
 Run "orla <command> -h" for the flags of a command.
 `
@@ -34,6 +36,10 @@ func main() {
 		err = list(args)
 	case "close":
 		err = closeTerminal(args)
+	case "run":
+		err = run(args)
+	case "sessions":
+		err = sessions(args)
 	case "help":
 		fmt.Print(usage)
 	default:

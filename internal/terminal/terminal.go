@@ -1,7 +1,6 @@
 package terminal
 
 import (
-	"crypto/rand"
 	"errors"
 	"os"
 	"os/exec"
@@ -10,7 +9,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/oklog/ulid/v2"
+
+	"github.com/Julio0Cesar/orla/internal/id"
 )
 
 // scrollbackLimit is how many bytes of recent output a terminal keeps for clients that attach
@@ -75,7 +75,7 @@ func start(spec Spec) (*Terminal, error) {
 
 	t := &Terminal{
 		info: Info{
-			ID:      "term_" + ulid.MustNew(ulid.Now(), rand.Reader).String(),
+			ID:      id.New("term"),
 			Argv:    spec.Argv,
 			Cwd:     spec.Cwd,
 			Started: time.Now().UTC(),

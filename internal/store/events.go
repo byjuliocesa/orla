@@ -69,3 +69,11 @@ func (s *Store) After(ctx context.Context, session string, after int64, limit in
 	}
 	return out, rows.Err()
 }
+
+// LastSeq returns the seq of the session's latest event, 0 if it has none.
+func (s *Store) LastSeq(ctx context.Context, session string) (int64, error) {
+	var seq int64
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(seq), 0) FROM events WHERE session = ?`, session).Scan(&seq)
+	return seq, err
+}
