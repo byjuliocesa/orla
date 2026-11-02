@@ -271,3 +271,74 @@ func TestTerminalPromptWaitsForTheOwner(t *testing.T) {
 		t.Fatalf("hook of an ended prompt got %d %s", r.code, r.body)
 	}
 }
+
+// A request waiting for the owner shows wherever the web client looks: the live stream of every
+// session, the list of pending requests, and the session's state in the sessions list.
+func TestWaitingRequestShowsInEveryList(t *testing.T) {
+	srv := newServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	termID, token := terminalHookToken(t, ctx, srv)
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/v1/events", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	all, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer all.Body.Close()
+
+	for _, h := range []string{
+		`{"hook_event_name":"UserPromptSubmit","session_id":"n1","prompt_id":"p1","cwd":"/w","prompt":"deploy it"}`,
+		`{"hook_event_name":"PreToolUse","session_id":"n1","prompt_id":"p1","cwd":"/w","tool_name":"Bash","tool_use_id":"toolu_1","tool_input":{"command":"make deploy"}}`,
+	} {
+		res, err := sendHook(ctx, srv, termID, token, h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+	}
+	go func() {
+		res, err := sendHook(ctx, srv, termID, token, `{"hook_event_name":"PermissionRequest","session_id":"n1","prompt_id":"p1","cwd":"/w","tool_name":"Bash","tool_input":{"command":"make deploy"}}`)
+		if err == nil {
+			res.Body.Close()
+		}
+	}()
+	got := readSSE(t, all.Body, events.ApprovalRequested)
+	if types := len(got); types < 3 || got[0].Type != events.RunStarted {
+		t.Fatalf("live stream = %v", got)
+	}
+
+	var pending struct{ Approvals []session.PendingApproval }
+	_ = json.NewDecoder(request(t, srv, "GET", "/v1/approvals", testToken, nil).Body).Decode(&pending)
+	if len(pending.Approvals) != 1 || pending.Approvals[0].Tool != "Bash" || pending.Approvals[0].CallID != "toolu_1" ||
+		pending.Approvals[0].Terminal != termID {
+		t.Fatalf("approvals = %+v", pending.Approvals)
+	}
+	a := pending.Approvals[0]
+
+	type view struct {
+		ID      string
+		State   string
+		Pending int
+		LastRun struct{ Prompt, Status string } `json:"last_run"`
+	}
+	list := func() view {
+		var l struct{ Sessions []view }
+		_ = json.NewDecoder(request(t, srv, "GET", "/v1/sessions", testToken, nil).Body).Decode(&l)
+		if len(l.Sessions) != 1 {
+			t.Fatalf("sessions = %+v", l.Sessions)
+		}
+		return l.Sessions[0]
+	}
+	if v := list(); v.State != "waiting" || v.Pending != 1 || v.LastRun.Prompt != "deploy it" || v.ID != a.Session {
+		t.Fatalf("waiting session = %+v", v)
+	}
+	if res := request(t, srv, "POST", "/v1/sessions/"+a.Session+"/approvals/"+a.ID, testToken,
+		map[string]any{"allow": true, "by": "web"}); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("resolve = %d", res.StatusCode)
+	}
+	if v := list(); v.State != "working" || v.Pending != 0 {
+		t.Fatalf("answered session = %+v", v)
+	}
+}

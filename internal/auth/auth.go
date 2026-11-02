@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,24 +46,6 @@ func LoadOrCreateToken(path string) (string, error) {
 		return "", err
 	}
 	return token, f.Close()
-}
-
-// Require lets a request through only with "Authorization: Bearer <token>".
-//
-// The token is never read from the query string, where it would end up in logs and browser
-// history. Browsers cannot set headers on a WebSocket, so the web client will need a cookie;
-// that comes with it.
-func Require(token string, next http.Handler) http.Handler {
-	want := []byte("Bearer " + token)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got := []byte(r.Header.Get("Authorization"))
-		if subtle.ConstantTimeCompare(got, want) != 1 {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="orla"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 // NewSecret returns 256 random bits, URL-safe.

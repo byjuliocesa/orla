@@ -108,3 +108,36 @@ func TestStalledSubscriberDoesNotBlockPublishers(t *testing.T) {
 		}
 	}
 }
+
+// The sidebar follows every session through one stream, which ends with its client.
+func TestSubscribeAllSeesEverySession(t *testing.T) {
+	bus := newBus(t)
+	publish(t, bus, "ses_before") // not replayed: the stream is live only
+	ctx, cancel := context.WithCancel(context.Background())
+	all := bus.SubscribeAll(ctx)
+	publish(t, bus, "ses_a")
+	publish(t, bus, "ses_b")
+	publish(t, bus, "ses_a")
+
+	var got []string
+	for range 3 {
+		select {
+		case e := <-all:
+			got = append(got, e.Session)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("got only %v", got)
+		}
+	}
+	if got[0] != "ses_a" || got[1] != "ses_b" || got[2] != "ses_a" {
+		t.Fatalf("events = %v", got)
+	}
+	cancel()
+	select {
+	case _, ok := <-all:
+		for ok {
+			_, ok = <-all
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("stream still open after its client left")
+	}
+}

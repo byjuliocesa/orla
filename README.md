@@ -22,18 +22,29 @@ internal/engine/loop/ Engine B: Orla's own agent loop
 internal/provider/   Model provider APIs for engine B
 internal/mcp/        MCP server the CLIs connect to
 internal/channel/    Chat channels
+internal/webui/      Serves the web client embedded in the binary
+web/                 The web client: Next.js, exported as static files
 docs/                Architecture, events, decisions
 ```
 
 ## Running
 
 ```bash
-go build -o orla ./cmd/orla
+make                     # builds the web client and the binary with it embedded (needs Node 22+)
 ./orla serve             # listens on 127.0.0.1:4410
 ```
 
+`go build -o orla ./cmd/orla` builds the binary without the web client, for the command line
+and the API alone.
+
 The first run creates an access token in `~/.local/share/orla/token`. Clients on the same
-machine read it from there; elsewhere, set `ORLA_TOKEN`.
+machine read it from there; elsewhere, set `ORLA_TOKEN`. In the browser, open
+`http://127.0.0.1:4410` and paste the token once: the browser keeps a login cookie for 30 days.
+A proxy in front of Orla must pass the original `Host` header, which the browser checks are made
+against.
+
+To work on the web client, run `make web-dev` and `./orla serve -ui-dev http://127.0.0.1:3000`
+in another shell: Orla then serves the client from the Next.js dev server, same origin as the API.
 
 Terminals live on the server and keep running when you leave them:
 
@@ -91,20 +102,25 @@ To reach a server on another machine without exposing it, forward the port over 
 
 ## API
 
-Every route under `/v1` needs `Authorization: Bearer <token>`.
+Every route under `/v1` needs `Authorization: Bearer <token>`, or the login cookie of a browser.
+A request with the cookie that changes something must come from Orla's own pages (its `Origin`).
 
 | Route | |
 | --- | --- |
 | `GET /health` | No token. Says the process is up. |
+| `POST /auth/login` | No token. Exchanges `{"token": "..."}` for a login cookie. |
+| `POST /auth/logout` | Ends the browser's login. |
 | `GET /v1/terminals` | Running terminals. |
 | `POST /v1/terminals` | Open one: `{"argv": [...], "cwd": "...", "cols": 80, "rows": 24}`, all optional. |
 | `DELETE /v1/terminals/{id}` | End it and every process it started. |
-| `GET /v1/sessions` | Agent sessions, newest first. |
+| `GET /v1/sessions` | Agent sessions, each with its `state` (`working`, `waiting`, `idle`, `ended`), `pending` requests and `last_run`. |
 | `POST /v1/sessions` | New session: `{"agent": "claude", "cwd": "..."}`. |
 | `GET /v1/sessions/{id}` | A session and its runs. |
 | `POST /v1/sessions/{id}/runs` | Start a run: `{"prompt": "...", "permission_mode": "...", "model": "..."}`. 409 while one is in progress. |
 | `POST /v1/sessions/{id}/cancel` | Cancel the run in progress. |
 | `GET /v1/sessions/{id}/events` | Server-Sent Events, from `?after=<seq>` or `Last-Event-ID`. See [docs/events.md](docs/events.md). |
+| `GET /v1/events` | Server-Sent Events of every session, live only, for lists that follow them all. |
+| `GET /v1/approvals` | Permission requests waiting for an answer, oldest first. |
 | `POST /v1/sessions/{id}/approvals/{approval}` | Answer a permission request: `{"allow": true, "message": "...", "by": "web"}`. 404 once answered or expired. |
 | `GET /v1/terminals/{id}/stream` | WebSocket. Binary messages are terminal bytes both ways. Text messages are control: `{"type":"resize","cols":..,"rows":..}` from the client, `{"type":"exit","code":..}` from the server. |
 

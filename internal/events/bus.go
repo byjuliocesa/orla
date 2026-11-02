@@ -22,7 +22,7 @@ const subscriberBuffer = 1024
 const replayPage = 500
 
 type subscriber struct {
-	session string
+	session string // empty: every session
 	live    chan Event
 }
 
@@ -67,7 +67,7 @@ func (b *Bus) Publish(ctx context.Context, e Event) (Event, error) {
 	e.Seq = seq
 
 	for s := range b.subs {
-		if s.session != e.Session {
+		if s.session != "" && s.session != e.Session {
 			continue
 		}
 		select {
@@ -136,6 +136,21 @@ func (b *Bus) Subscribe(ctx context.Context, session string, after int64) <-chan
 		}
 	}()
 	return out
+}
+
+// SubscribeAll returns the events of every session as they are published, without replay: it
+// tells a client what changed, and the client reads the state itself. The channel closes when
+// ctx ends or the subscriber falls behind.
+func (b *Bus) SubscribeAll(ctx context.Context) <-chan Event {
+	s := &subscriber{live: make(chan Event, subscriberBuffer)}
+	b.mu.Lock()
+	b.subs[s] = struct{}{}
+	b.mu.Unlock()
+	go func() {
+		<-ctx.Done()
+		b.unsubscribe(s)
+	}()
+	return s.live
 }
 
 func (b *Bus) unsubscribe(s *subscriber) {

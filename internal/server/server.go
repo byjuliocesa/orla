@@ -24,6 +24,9 @@ type Deps struct {
 	Sessions  *session.Service
 	// HookURL is where CLIs in Orla terminals send their hook events.
 	HookURL string
+	// UI serves the web client at every path outside the API. Nil serves a note saying the
+	// binary was built without it.
+	UI http.Handler
 }
 
 type Server struct {
@@ -55,6 +58,8 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("POST /v1/sessions/{id}/cancel", s.cancelRun)
 	api.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)
 	api.HandleFunc("POST /v1/sessions/{id}/approvals/{approval}", s.resolveApproval)
+	api.HandleFunc("GET /v1/events", s.streamAllEvents)
+	api.HandleFunc("GET /v1/approvals", s.listApprovals)
 
 	mux := http.NewServeMux()
 	// Unauthenticated on purpose: it says only that the process is up, for health checks and
@@ -62,9 +67,20 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	mux.Handle("/v1/", auth.Require(d.Token, api))
+	gate := auth.Gate{Token: d.Token, Logins: d.Store}
+	mux.Handle("/v1/", gate.Require(api))
+	mux.HandleFunc("POST /auth/login", gate.Login)
+	mux.HandleFunc("POST /auth/logout", gate.Logout)
 	mux.HandleFunc("POST /hooks/claude", s.claudeHook)
 	mux.HandleFunc("/mcp/runs/{run}", s.runMCP)
+	ui := d.UI
+	if ui == nil {
+		ui = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "This Orla was built without its web client. Build it with `make`.", http.StatusNotFound)
+		})
+	}
+	// "/" and not "GET /": a method on the catch-all would conflict with "/v1/".
+	mux.Handle("/", ui)
 	return mux
 }
 

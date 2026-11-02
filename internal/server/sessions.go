@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Julio0Cesar/orla/internal/events"
 	"github.com/Julio0Cesar/orla/internal/session"
 	"github.com/Julio0Cesar/orla/internal/store"
 )
@@ -19,16 +20,43 @@ const heartbeat = 25 * time.Second
 
 type sessionView struct {
 	store.Session
-	// ActiveRun is the run in progress, if any.
+	// ActiveRun is the headless run in progress, if any.
 	ActiveRun string `json:"active_run,omitempty"`
 	// LastSeq is the seq of the latest event, to stream only what comes next.
 	LastSeq int64 `json:"last_seq"`
+	// State is what the session is doing: working, waiting (for the owner), idle or ended.
+	State string `json:"state"`
+	// Pending counts the approval requests waiting for the owner.
+	Pending int        `json:"pending"`
+	Updated *time.Time `json:"updated,omitempty"`
+	LastRun *store.Run `json:"last_run,omitempty"`
 }
 
 func (s *Server) view(ctx context.Context, x store.Session) sessionView {
-	run, _ := s.sessions.Busy(x.ID)
-	seq, _ := s.store.LastSeq(ctx, x.ID)
-	return sessionView{Session: x, ActiveRun: run, LastSeq: seq}
+	v := sessionView{Session: x}
+	v.ActiveRun, _ = s.sessions.Busy(x.ID)
+	a, _ := s.store.Activity(ctx, x.ID)
+	v.LastSeq = a.LastSeq
+	if !a.Updated.IsZero() {
+		v.Updated = &a.Updated
+	}
+	if run, err := s.store.LatestRun(ctx, x.ID); err == nil {
+		v.LastRun = &run
+	}
+	v.Pending = s.sessions.PendingCount(x.ID)
+
+	running := v.LastRun != nil && v.LastRun.Status == store.RunRunning
+	switch {
+	case v.Pending > 0 || (running && a.State == "waiting"):
+		v.State = "waiting"
+	case running:
+		v.State = "working"
+	case a.State == "ended":
+		v.State = "ended"
+	default:
+		v.State = "idle"
+	}
+	return v
 }
 
 func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
@@ -150,6 +178,23 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	writeSSE(w, r, s.bus.Subscribe(r.Context(), x.ID, from), true)
+}
+
+// streamAllEvents sends the events of every session as they happen, without replay and without
+// ids: seqs count per session, so there is nothing to resume from. A client reads the current
+// state from the sessions list after it connects, and applies what follows.
+func (s *Server) streamAllEvents(w http.ResponseWriter, r *http.Request) {
+	writeSSE(w, r, s.bus.SubscribeAll(r.Context()), false)
+}
+
+func (s *Server) listApprovals(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"approvals": s.sessions.PendingApprovals()})
+}
+
+// writeSSE streams events until the client leaves or the channel closes (a subscriber that fell
+// behind; the client reconnects).
+func writeSSE(w http.ResponseWriter, r *http.Request, ch <-chan events.Event, withID bool) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
@@ -163,7 +208,6 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	ctx := r.Context()
-	ch := s.bus.Subscribe(ctx, x.ID, from)
 	tick := time.NewTicker(heartbeat)
 	defer tick.Stop()
 	for {
@@ -173,7 +217,13 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			b, _ := json.Marshal(e)
-			if _, err := fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.Seq, e.Type, b); err != nil {
+			var err error
+			if withID {
+				_, err = fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.Seq, e.Type, b)
+			} else {
+				_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", e.Type, b)
+			}
+			if err != nil {
 				return
 			}
 			flusher.Flush()

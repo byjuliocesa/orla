@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/Julio0Cesar/orla/internal/events"
@@ -28,9 +29,13 @@ type Decision struct {
 }
 
 type pending struct {
-	sess   store.Session
-	run    string
-	callID string
+	sess    store.Session
+	run     string
+	callID  string
+	tool    string
+	input   json.RawMessage
+	asked   time.Time
+	expires time.Time
 	// terminal is set when the CLI asks in an Orla terminal, which shows the same prompt.
 	terminal string
 	// ended receives the one ending of the request.
@@ -99,13 +104,16 @@ func (s *Service) Resolve(ctx context.Context, session, approvalID string, d Dec
 // openApproval records a request and announces it.
 func (s *Service) openApproval(ctx context.Context, p *pending, tool string, input json.RawMessage) string {
 	approvalID := id.New("apr")
+	p.tool, p.input = tool, input
+	p.asked = time.Now().UTC()
+	p.expires = p.asked.Add(s.approvalWait)
 	s.mu.Lock()
 	s.approvals[approvalID] = p
 	s.mu.Unlock()
 
 	data := map[string]any{
 		"approval_id": approvalID, "tool": tool, "input": input, "call_id": p.callID,
-		"expires_at": time.Now().Add(s.approvalWait).UTC(),
+		"expires_at": p.expires,
 	}
 	if p.terminal != "" {
 		data["terminal"] = p.terminal
@@ -151,6 +159,47 @@ func (s *Service) endApprovalsWhere(ctx context.Context, match func(*pending) bo
 	for _, approvalID := range ids {
 		s.endApproval(ctx, approvalID, match, e)
 	}
+}
+
+// PendingApproval is a request waiting for the owner.
+type PendingApproval struct {
+	ID       string          `json:"approval_id"`
+	Session  string          `json:"session"`
+	Run      string          `json:"run"`
+	Tool     string          `json:"tool"`
+	Input    json.RawMessage `json:"input"`
+	CallID   string          `json:"call_id,omitempty"`
+	Terminal string          `json:"terminal,omitempty"`
+	Asked    time.Time       `json:"asked_at"`
+	Expires  time.Time       `json:"expires_at"`
+}
+
+// PendingApprovals returns every request waiting for the owner, oldest first.
+func (s *Service) PendingApprovals() []PendingApproval {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []PendingApproval{}
+	for approvalID, p := range s.approvals {
+		out = append(out, PendingApproval{
+			ID: approvalID, Session: p.sess.ID, Run: p.run, Tool: p.tool, Input: p.input,
+			CallID: p.callID, Terminal: p.terminal, Asked: p.asked, Expires: p.expires,
+		})
+	}
+	slices.SortFunc(out, func(a, b PendingApproval) int { return a.Asked.Compare(b.Asked) })
+	return out
+}
+
+// PendingCount is how many requests of a session wait for the owner.
+func (s *Service) PendingCount(session string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, p := range s.approvals {
+		if p.sess.ID == session {
+			n++
+		}
+	}
+	return n
 }
 
 // runAccess is what a run's MCP endpoint is checked against.

@@ -3,3 +3,9 @@
 *.db
 *.db-*
 .env
+/internal/webui/dist/
+/.impeccable/mocks/
+/.impeccable/review/
+/.impeccable/build/
+/.impeccable/live/
+/.impeccable/decision-payload.json

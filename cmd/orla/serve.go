@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"github.com/Julio0Cesar/orla/internal/session"
 	"github.com/Julio0Cesar/orla/internal/store"
 	"github.com/Julio0Cesar/orla/internal/terminal"
+	"github.com/Julio0Cesar/orla/internal/webui"
 )
 
 func serve(args []string) error {
@@ -30,7 +32,20 @@ func serve(args []string) error {
 	addr := fs.String("addr", defaultAddr, "address to listen on")
 	dataDir := fs.String("data", defaultDataDir(), "directory for the database and token")
 	claudePath := fs.String("claude", "claude", "the Claude Code executable")
+	uiDev := fs.String("ui-dev", "", "serve the web client from this Next.js dev server (development)")
 	_ = fs.Parse(args)
+
+	var ui http.Handler
+	switch {
+	case *uiDev != "":
+		target, err := url.Parse(*uiDev)
+		if err != nil || target.Host == "" {
+			return fmt.Errorf("-ui-dev: %q is not a URL", *uiDev)
+		}
+		ui = webui.DevProxy(target)
+	case webui.Files() != nil:
+		ui = webui.Handler(webui.Files())
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if host, _, err := net.SplitHostPort(*addr); err == nil {
@@ -76,7 +91,7 @@ func serve(args []string) error {
 		BaseContext: func(net.Listener) context.Context { return requests },
 		Handler: server.New(server.Deps{
 			Log: log, Token: token, Terminals: terminals, Store: db, Bus: bus, Sessions: sessions,
-			HookURL: "http://" + *addr + "/hooks/claude",
+			HookURL: "http://" + *addr + "/hooks/claude", UI: ui,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

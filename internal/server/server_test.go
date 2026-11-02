@@ -105,6 +105,9 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"POST", "/v1/sessions/ses_x/runs"},
 		{"POST", "/v1/sessions/ses_x/cancel"},
 		{"GET", "/v1/sessions/ses_x/events"},
+		{"POST", "/v1/sessions/ses_x/approvals/apr_x"},
+		{"GET", "/v1/events"},
+		{"GET", "/v1/approvals"},
 		{"GET", "/v1/anything"},
 	}
 	for _, token := range []string{"", "wrong", testToken + "x"} {
