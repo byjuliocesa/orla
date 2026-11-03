@@ -72,10 +72,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.version.outputs.tag }}" -m "${{ steps.version.outputs.tag }}"
 
-      - name: Test
-        if: steps.version.outputs.skip != 'true'
-        run: make test
-
       - name: Build
         if: steps.version.outputs.skip != 'true'
         env:
@@ -89,6 +85,11 @@ jobs:
           cp orla README.md LICENSE "$name/"
           tar -czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      # After the build, which installs the web client's dependencies.
+      - name: Test
+        if: steps.version.outputs.skip != 'true'
+        run: make test
 
       - name: Publish
         if: steps.version.outputs.skip != 'true'
