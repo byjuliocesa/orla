@@ -1,6 +1,6 @@
 'use client';
 
-import { ago, folderName } from '@/lib/format';
+import { ago, sessionName } from '@/lib/format';
 import type { Route } from '@/lib/route';
 import type { PendingApproval, Session, TerminalInfo } from '@/lib/types';
 import { Bell, Inbox, LogOut, Plus, TerminalIcon } from './Icons';
@@ -79,7 +79,7 @@ export function Sidebar({
               onClick={() => go({ view: 'session', session: s.id })}
             >
               <span className="dot" data-state={state} />
-              <span className="session-name">{folderName(s.cwd)}</span>
+              <span className="session-name">{sessionName(s)}</span>
               <span className="session-meta" data-state={state}>
                 {stateWord[state] || ago(s.updated ?? s.created, now)}
               </span>

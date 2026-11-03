@@ -112,3 +112,37 @@ export const Spinner = () => (
     <path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
   </svg>
 );
+
+export const Branch = () => (
+  <Icon>
+    <circle cx="5" cy="3.8" r="1.6" />
+    <circle cx="5" cy="12.2" r="1.6" />
+    <circle cx="11" cy="5.8" r="1.6" />
+    <path d="M5 5.4v5.2M11 7.4c0 2.2-1.8 2.8-4.4 3.6" />
+  </Icon>
+);
+export const Undo = () => (
+  <Icon>
+    <path d="M5.5 3.5 2.5 6.5l3 3" />
+    <path d="M3 6.5h6.5a3.5 3.5 0 0 1 0 7H7" />
+  </Icon>
+);
+export const Merge = () => (
+  <Icon>
+    <circle cx="4.5" cy="3.8" r="1.6" />
+    <circle cx="4.5" cy="12.2" r="1.6" />
+    <circle cx="11.5" cy="12.2" r="1.6" />
+    <path d="M4.5 5.4v5.2M4.5 5.6c0 3 2.6 4.6 5.4 5.4" />
+  </Icon>
+);
+export const Commit = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="2.4" />
+    <path d="M1.5 8h4.1M10.4 8h4.1" />
+  </Icon>
+);
+export const Trash = () => (
+  <Icon>
+    <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
+  </Icon>
+);

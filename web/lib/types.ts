@@ -40,6 +40,73 @@ export interface Session {
   pending: number;
   updated?: string;
   last_run?: Run;
+  /** Set when the session works in a worktree Orla made. */
+  worktree?: Worktree;
+}
+
+export interface Worktree {
+  path: string;
+  /** The repository's main work tree. */
+  repo: string;
+  branch: string;
+  /** The branch (or commit) it started from and merges back into. */
+  base: string;
+  created: string;
+  removed?: string;
+  /** On removal: the stash that holds what was uncommitted. */
+  stash?: string;
+  /** On removal: the branch stayed, because its base lacked its commits. */
+  branch_kept?: boolean;
+}
+
+export interface Repo {
+  root: string;
+  main: string;
+  branch?: string;
+  head?: string;
+}
+
+export type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
+
+export interface ChangedFile {
+  path: string;
+  /** The old path of a rename. */
+  from?: string;
+  status: FileStatus;
+  added: number;
+  removed: number;
+  binary?: boolean;
+  /** Part of the change is not committed yet, so it can be discarded. */
+  uncommitted: boolean;
+}
+
+/** What a session changed: against its worktree's base, or against the last commit. */
+export type Changes =
+  | { git: false; folder_gone?: boolean }
+  | {
+      git: true;
+      repo: Repo;
+      files: ChangedFile[];
+      more: number;
+      worktree?: Worktree;
+      base_commit?: string;
+      ahead?: number;
+      behind?: number;
+    };
+
+export interface MergeState {
+  preview: {
+    ahead: number;
+    behind: number;
+    clean: boolean;
+    conflicts?: string[];
+    /** The work tree that has the base checked out, where the merge runs. */
+    into?: string;
+  };
+  base: string;
+  branch: string;
+  /** Files not committed in the worktree, which a merge leaves behind. */
+  uncommitted: number;
 }
 
 export interface PendingApproval {

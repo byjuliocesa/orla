@@ -92,6 +92,7 @@ func serve(args []string) error {
 		Handler: server.New(server.Deps{
 			Log: log, Token: token, Terminals: terminals, Store: db, Bus: bus, Sessions: sessions,
 			HookURL: "http://" + *addr + "/hooks/claude", UI: ui,
+			Worktrees: filepath.Join(*dataDir, "worktrees"),
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

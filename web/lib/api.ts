@@ -1,4 +1,4 @@
-import type { PendingApproval, Session, TerminalInfo } from './types';
+import type { ChangedFile, Changes, MergeState, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -63,6 +63,28 @@ export const api = {
       message: message || undefined,
       by: 'web',
     }),
+
+  gitInfo: (path: string) =>
+    call<{ git: boolean; repo?: Repo }>('GET', `/v1/git?path=${encodeURIComponent(path)}`),
+  createWorktree: (from: string, branch?: string) =>
+    call<{ worktree: Worktree; cwd: string }>('POST', '/v1/worktrees', { from, branch: branch || undefined }),
+  changes: (session: string) => call<Changes>('GET', `/v1/sessions/${session}/changes`),
+  diff: (session: string, path: string) =>
+    call<{ file: ChangedFile; patch: string; truncated: boolean }>(
+      'GET',
+      `/v1/sessions/${session}/diff?path=${encodeURIComponent(path)}`,
+    ),
+  discard: (session: string, path: string) =>
+    call<{ stash: string }>('POST', `/v1/sessions/${session}/discard`, { path }),
+  commit: (session: string, message: string) =>
+    call<{ commit: string }>('POST', `/v1/sessions/${session}/commit`, { message }),
+  mergeState: (session: string) => call<MergeState>('GET', `/v1/sessions/${session}/merge`),
+  merge: (session: string) => call<MergeState>('POST', `/v1/sessions/${session}/merge`),
+  removeWorktree: (session: string) =>
+    call<{ removal: { stash?: string; branch_kept: boolean }; branch: string }>(
+      'DELETE',
+      `/v1/sessions/${session}/worktree`,
+    ),
 
   terminals: () =>
     call<{ terminals: TerminalInfo[] }>('GET', '/v1/terminals').then((r) => r.terminals),

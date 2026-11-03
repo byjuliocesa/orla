@@ -56,6 +56,7 @@ func newServerWith(t *testing.T, claude cli.Claude) (*httptest.Server, *session.
 	terminals := terminal.NewManager()
 	srv := httptest.NewServer(New(Deps{
 		Log: log, Token: testToken, Terminals: terminals, Store: st, Bus: bus, Sessions: sessions,
+		Worktrees: filepath.Join(t.TempDir(), "worktrees"),
 	}))
 	t.Cleanup(func() {
 		srv.CloseClientConnections()
@@ -108,6 +109,15 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"POST", "/v1/sessions/ses_x/approvals/apr_x"},
 		{"GET", "/v1/events"},
 		{"GET", "/v1/approvals"},
+		{"GET", "/v1/git?path=/tmp"},
+		{"POST", "/v1/worktrees"},
+		{"GET", "/v1/sessions/ses_x/changes"},
+		{"GET", "/v1/sessions/ses_x/diff?path=a"},
+		{"POST", "/v1/sessions/ses_x/discard"},
+		{"POST", "/v1/sessions/ses_x/commit"},
+		{"GET", "/v1/sessions/ses_x/merge"},
+		{"POST", "/v1/sessions/ses_x/merge"},
+		{"DELETE", "/v1/sessions/ses_x/worktree"},
 		{"GET", "/v1/anything"},
 	}
 	for _, token := range []string{"", "wrong", testToken + "x"} {

@@ -50,6 +50,12 @@ export function folderName(cwd: string): string {
   return parts[parts.length - 1] || cwd;
 }
 
+/** What a session is called in lists: its folder, or its repository and worktree branch. */
+export function sessionName(s: { cwd: string; worktree?: { repo: string; branch: string } }): string {
+  if (!s.worktree) return folderName(s.cwd);
+  return `${folderName(s.worktree.repo)} · ${s.worktree.branch.replace(/^orla\//, '')}`;
+}
+
 /** A path as people read it: ~ for home, and the middle cut out when it is long. */
 export function shortPath(path: string, max = 48): string {
   const p = path.replace(/^\/home\/[^/]+/, '~').replace(/^\/Users\/[^/]+/, '~');

@@ -24,6 +24,8 @@ type Deps struct {
 	Sessions  *session.Service
 	// HookURL is where CLIs in Orla terminals send their hook events.
 	HookURL string
+	// Worktrees is the folder that holds the worktrees Orla makes.
+	Worktrees string
 	// UI serves the web client at every path outside the API. Nil serves a note saying the
 	// binary was built without it.
 	UI http.Handler
@@ -36,13 +38,14 @@ type Server struct {
 	bus       *events.Bus
 	sessions  *session.Service
 	hookURL   string
+	worktrees string
 }
 
 // New returns the root handler with every route registered.
 func New(d Deps) http.Handler {
 	s := &Server{
 		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
-		hookURL: d.HookURL,
+		hookURL: d.HookURL, worktrees: d.Worktrees,
 	}
 
 	api := http.NewServeMux()
@@ -60,6 +63,16 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("POST /v1/sessions/{id}/approvals/{approval}", s.resolveApproval)
 	api.HandleFunc("GET /v1/events", s.streamAllEvents)
 	api.HandleFunc("GET /v1/approvals", s.listApprovals)
+
+	api.HandleFunc("GET /v1/git", s.gitInfo)
+	api.HandleFunc("POST /v1/worktrees", s.createWorktree)
+	api.HandleFunc("GET /v1/sessions/{id}/changes", s.sessionChanges)
+	api.HandleFunc("GET /v1/sessions/{id}/diff", s.sessionDiff)
+	api.HandleFunc("POST /v1/sessions/{id}/discard", s.discardChange)
+	api.HandleFunc("POST /v1/sessions/{id}/commit", s.commitChanges)
+	api.HandleFunc("GET /v1/sessions/{id}/merge", s.previewMerge)
+	api.HandleFunc("POST /v1/sessions/{id}/merge", s.mergeWorktree)
+	api.HandleFunc("DELETE /v1/sessions/{id}/worktree", s.removeWorktree)
 
 	mux := http.NewServeMux()
 	// Unauthenticated on purpose: it says only that the process is up, for health checks and

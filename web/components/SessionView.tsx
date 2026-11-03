@@ -2,10 +2,11 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
-import { between, clock, duration, folderName, modelName, permissionModes, shortPath, tokens } from '@/lib/format';
-import { useMedia, useNow, useSessionTimeline } from '@/lib/hooks';
+import { between, clock, duration, folderName, modelName, permissionModes, sessionName, shortPath, tokens } from '@/lib/format';
+import { useMedia, useNow, useReview, useSessionTimeline } from '@/lib/hooks';
 import type { Session } from '@/lib/types';
-import { ArrowLeft, PanelRight, Send, Stop, TerminalIcon } from './Icons';
+import { ChangesView } from './Changes';
+import { ArrowLeft, Branch, PanelRight, Send, Stop, TerminalIcon } from './Icons';
 import { RunBlock } from './Run';
 
 export function SessionView({
@@ -30,6 +31,14 @@ export function SessionView({
   // Whatever the list knew about when the session opened is history; later steps arrive live.
   const [liveAfter] = useState(session.last_seq);
   const [cancelling, setCancelling] = useState(false);
+  const [tab, setTab] = useState<'timeline' | 'changes'>('timeline');
+  const review = useReview(session.id, timeline.filesSeq);
+  const changes = review.changes;
+  const reviewable = changes?.git === true || Boolean(session.worktree);
+  const changedCount = changes?.git ? changes.files.length + changes.more : 0;
+  const branch = changes?.git ? changes.repo.branch : undefined;
+  // Once its worktree is gone, the session is shown in the repository it came from.
+  const folder = session.worktree?.removed ? session.worktree.repo : session.cwd;
 
   const latest = timeline.runs[timeline.runs.length - 1];
   const title = latest?.prompt || session.last_run?.prompt || folderName(session.cwd);
@@ -78,7 +87,7 @@ export function SessionView({
         <button className="icon-btn" onClick={onBack} aria-label="All sessions">
           <ArrowLeft />
         </button>
-        <span className="title">{folderName(session.cwd)}</span>
+        <span className="title">{sessionName(session)}</span>
         {session.terminal && (
           <button className="icon-btn" onClick={() => openTerminal(session.terminal!)} aria-label="Open its terminal">
             <TerminalIcon />
@@ -89,9 +98,14 @@ export function SessionView({
         <div style={{ minWidth: 0 }}>
           <h1 className="head-title">{title}</h1>
           <div className="head-meta">
-            <span className="path" title={session.cwd}>
-              {shortPath(session.cwd, narrow ? 30 : 48)}
+            <span className="path" title={folder}>
+              {shortPath(folder, narrow ? 30 : 48)}
             </span>
+            {branch && (
+              <span className="branch" title={`Branch ${branch}`}>
+                <Branch /> {branch}
+              </span>
+            )}
             <span className="agent">{session.agent === 'claude' ? 'Claude Code' : session.agent}</span>
             {latest?.model && <span>{modelName(latest.model)}</span>}
             {progress && <span className="num">{progress}</span>}
@@ -103,6 +117,17 @@ export function SessionView({
             )}
             {!live && <span>reconnecting…</span>}
           </div>
+          {reviewable && (
+            <div className="head-tabs" role="group" aria-label="Show">
+              <button className="head-tab" aria-pressed={tab === 'timeline'} onClick={() => setTab('timeline')}>
+                Timeline
+              </button>
+              <button className="head-tab" aria-pressed={tab === 'changes'} onClick={() => setTab('changes')}>
+                Changes
+                {changedCount > 0 && <span className="count num">{changedCount}</span>}
+              </button>
+            </div>
+          )}
         </div>
         <div className="head-actions">
           {session.active_run && (
@@ -120,6 +145,20 @@ export function SessionView({
         </div>
       </header>
 
+      {tab === 'changes' && reviewable ? (
+        <ChangesView
+          session={session}
+          review={review}
+          working={Boolean(session.active_run) || latest?.status === 'running'}
+          onChanged={onChanged}
+          onAsk={async (prompt) => {
+            await api.startRun(session.id, { prompt });
+            onChanged();
+            setTab('timeline');
+          }}
+          filesSeq={timeline.filesSeq}
+        />
+      ) : (
       <div className="feed" ref={feed} onScroll={onScroll} aria-live="polite" aria-busy={!live && timeline.runs.length === 0}>
         {timeline.runs.length === 0 && (
           <p className="loading">{live ? 'No runs yet. Send the first prompt below.' : 'Loading the session…'}</p>
@@ -133,13 +172,33 @@ export function SessionView({
           />
         ))}
       </div>
+      )}
 
-      <Composer session={session} busy={Boolean(session.active_run) || Boolean(runningInTerminal)} inTerminal={Boolean(runningInTerminal)} onStarted={onChanged} />
+      <Composer
+        session={session}
+        busy={Boolean(session.active_run) || Boolean(runningInTerminal)}
+        inTerminal={Boolean(runningInTerminal)}
+        closed={session.worktree?.removed ? 'The worktree was removed. Start a new session to go on.' : ''}
+        onStarted={onChanged}
+      />
     </>
   );
 }
 
-function Composer({ session, busy, inTerminal, onStarted }: { session: Session; busy: boolean; inTerminal: boolean; onStarted: () => void }) {
+function Composer({
+  session,
+  busy,
+  inTerminal,
+  closed,
+  onStarted,
+}: {
+  session: Session;
+  busy: boolean;
+  inTerminal: boolean;
+  /** Why the session takes no more prompts, if it does not. */
+  closed: string;
+  onStarted: () => void;
+}) {
   const [prompt, setPrompt] = useState('');
   const [mode, setMode] = useState('');
   const [sending, setSending] = useState(false);
@@ -156,7 +215,7 @@ function Composer({ session, busy, inTerminal, onStarted }: { session: Session; 
   const send = async (e?: FormEvent) => {
     e?.preventDefault();
     const text = prompt.trim();
-    if (!text || busy || sending) return;
+    if (!text || busy || sending || closed) return;
     setSending(true);
     setError('');
     try {
@@ -181,7 +240,7 @@ function Composer({ session, busy, inTerminal, onStarted }: { session: Session; 
   };
 
   // The run's own status line already says when one is in progress.
-  const note = inTerminal ? 'Claude Code is working in its terminal; answer it there or wait for it.' : '';
+  const note = closed || (inTerminal ? 'Claude Code is working in its terminal; answer it there or wait for it.' : '');
 
   return (
     <form className="composer" onSubmit={send}>
@@ -196,6 +255,7 @@ function Composer({ session, busy, inTerminal, onStarted }: { session: Session; 
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKey}
+          disabled={Boolean(closed)}
           placeholder={busy ? 'Write the next prompt; send it when the run ends' : 'Send a prompt to this session'}
         />
         <div className="composer-bar">
@@ -206,19 +266,23 @@ function Composer({ session, busy, inTerminal, onStarted }: { session: Session; 
               </span>
             )}
           </span>
-          <label className="visually-hidden" htmlFor="mode">
-            Permissions
-          </label>
-          <select id="mode" className="select" value={mode} onChange={(e) => setMode(e.target.value)} title="Permissions for this run">
-            {permissionModes.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <button className="btn btn-primary" disabled={busy || sending || !prompt.trim()}>
-            <Send /> {sending ? 'Sending…' : 'Run'}
-          </button>
+          {!closed && (
+            <>
+              <label className="visually-hidden" htmlFor="mode">
+                Permissions
+              </label>
+              <select id="mode" className="select" value={mode} onChange={(e) => setMode(e.target.value)} title="Permissions for this run">
+                {permissionModes.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <button className="btn btn-primary" disabled={busy || sending || Boolean(closed) || !prompt.trim()}>
+                <Send /> {sending ? 'Sending…' : 'Run'}
+              </button>
+            </>
+          )}
         </div>
       </div>
       {error && (

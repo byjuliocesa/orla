@@ -97,6 +97,8 @@ export interface Timeline {
   status?: { state: string; message?: string; at: string };
   limits?: Limits;
   lastSeq: number;
+  /** Seq of the latest event after which the files may differ: files.changed, or a run's end. */
+  filesSeq: number;
 }
 
 const zero = (): Tokens => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
@@ -114,7 +116,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
   const runById = new Map<string, RunView>();
   const calls = new Map<string, ToolStep>();
   const approvals = new Map<string, Approval>();
-  const t: Timeline = { runs, pending: [], lastSeq: 0 };
+  const t: Timeline = { runs, pending: [], lastSeq: 0, filesSeq: 0 };
 
   const runOf = (e: OrlaEvent): RunView | undefined => {
     if (!e.run) return undefined;
@@ -149,6 +151,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
         break;
       }
       case 'run.finished': {
+        t.filesSeq = e.seq;
         const r = runOf(e);
         if (!r) break;
         r.status = (str(d.status) || 'done') as RunStatus;
@@ -256,6 +259,9 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
       }
       case 'status':
         t.status = { state: str(d.state), message: str(d.message) || undefined, at: e.time };
+        break;
+      case 'files.changed':
+        t.filesSeq = e.seq;
         break;
     }
   }

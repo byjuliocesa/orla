@@ -28,6 +28,10 @@
   --fail-text: #ff9da0;
   --fail-ground: #2a1214;
   --ok: #46c37b;
+  --output-text: #cfcfd6; /* what a tool printed, a step below the command that printed it */
+  --diff-add: #8fe0b0;
+  --diff-add-ground: rgba(70, 195, 123, 0.1);
+  --diff-del-ground: rgba(242, 85, 90, 0.1);
 
   --sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -753,7 +757,7 @@ textarea {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--bg);
-  color: #cfcfd6;
+  color: var(--output-text);
   line-height: 1.6;
   white-space: pre;
 }
@@ -810,7 +814,7 @@ textarea {
 }
 
 .output.diff .add {
-  color: #8fe0b0;
+  color: var(--diff-add);
 }
 
 .detail {
@@ -1316,6 +1320,373 @@ kbd {
   justify-content: center;
 }
 
+/* ---------- Changes: what a session's agent changed, as a code review shows it ---------- */
+
+.head-meta .branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.head-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+/* The view in front takes selection navy, as the current navigation item does. */
+.head-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--dim);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+.head-tab:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.head-tab[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.head-tab .count {
+  height: 18px;
+  min-width: 18px;
+  font-size: 11.5px;
+}
+
+.empty code,
+.hint code,
+.review-bar code {
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--raise);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* A stash name runs long; it wraps rather than run off the screen. */
+.empty code.wrap {
+  white-space: normal;
+}
+
+.review {
+  gap: 12px;
+}
+
+/* The whole view scrolls as one; a panel that shrank to fit the feed would clip its files. */
+.review > * {
+  flex: none;
+  max-width: 980px;
+  width: 100%;
+}
+
+.review-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.review-what {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Every line of the bar has a 16px slot for its mark, and wraps under its own text. */
+.review-branch {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.review-branch > .status {
+  color: var(--faint);
+  margin-top: 2px;
+  flex: none;
+}
+
+.review-branch-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.review-branch code {
+  background: var(--raise);
+}
+
+.review-merge {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.review-merge[data-tone='idle'] {
+  color: var(--dim);
+}
+
+.review-merge .status {
+  margin-top: 2px;
+  flex: none;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Removing is the rare step: it keeps its own width, at the far end. */
+.review-actions .btn-remove {
+  flex: none;
+  margin-left: auto;
+}
+
+.commit-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.commit-form .field {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+}
+
+.review-note {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.review-error {
+  margin-top: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+/* Clipped rather than hidden, so a file's header can stick while its diff scrolls past. */
+.files {
+  overflow: clip;
+}
+
+.file-head {
+  position: sticky;
+  top: -18px; /* the feed's top padding: the header sticks to the very top of the view */
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  background: var(--panel);
+  transition: background-color 120ms var(--ease-out);
+}
+
+.file-head:hover {
+  background: var(--raise);
+}
+
+.file-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-row:hover {
+  background: none;
+}
+
+.file-status {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--faint);
+}
+
+.file-path {
+  display: flex;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* The folder gives way before the file name does. */
+.file-dir {
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.file-name {
+  color: var(--text);
+  flex: none;
+}
+
+.file-from {
+  margin-left: 8px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-conflict {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fail-text);
+}
+
+.file-binary {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.file-discard {
+  margin-right: 8px;
+  flex: none;
+}
+
+.diff-note {
+  padding: 0 14px 12px 46px;
+}
+
+/* Code keeps its columns and scrolls sideways; the line numbers and signs are not copied. */
+.diff-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0 12px;
+  overflow-x: auto;
+  background: var(--panel);
+}
+
+.diff {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-variant-ligatures: none;
+  color: var(--output-text);
+  background: var(--bg);
+}
+
+.diff td {
+  padding: 0;
+  vertical-align: top;
+}
+
+.diff .ln {
+  width: 1%;
+  min-width: 44px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.diff .code {
+  padding: 0 14px 0 4px;
+  white-space: pre;
+}
+
+.diff .sign {
+  display: inline-block;
+  width: 14px;
+  user-select: none;
+  color: var(--faint);
+}
+
+.diff tr[data-k='add'] {
+  background: var(--diff-add-ground);
+}
+
+.diff tr[data-k='add'] .code,
+.diff tr[data-k='add'] .sign {
+  color: var(--diff-add);
+}
+
+.diff tr[data-k='del'] {
+  background: var(--diff-del-ground);
+}
+
+.diff tr[data-k='del'] .code,
+.diff tr[data-k='del'] .sign {
+  color: var(--fail-text);
+}
+
+.diff .hunk td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  background: var(--raise);
+  color: var(--faint);
+}
+
+.diff .hunk .hunk-context {
+  color: var(--dim);
+}
+
+.diff .diff-eof {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.diff-wrap .output-more,
+.diff-wrap .output-note {
+  margin-left: 46px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent-fill);
+}
+
 /* ---------- The phone: one column; the list is the home screen ---------- */
 
 @media (max-width: 860px) {
@@ -1429,6 +1800,56 @@ kbd {
 
   .outcome {
     margin-left: 14px;
+  }
+
+  .review-bar {
+    padding: 12px;
+  }
+
+  .review-actions {
+    width: 100%;
+  }
+
+  .review-actions .btn,
+  .commit-form .btn,
+  .commit-form .field {
+    height: 44px;
+  }
+
+  .review-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .review-actions .btn-remove {
+    flex: none;
+  }
+
+
+  .commit-form {
+    flex-wrap: wrap;
+  }
+
+  .commit-form .field {
+    flex-basis: 100%;
+  }
+
+  .file-discard {
+    width: 44px;
+    height: 44px;
+    margin-right: 0;
+  }
+
+  .diff-note,
+  .diff-wrap .output-more,
+  .diff-wrap .output-note {
+    padding-left: 14px;
+    margin-left: 0;
+  }
+
+  .diff .ln {
+    min-width: 34px;
+    padding: 0 6px;
   }
 
 

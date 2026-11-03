@@ -97,6 +97,14 @@ updating Orla, to pick up new hooks.
 Ctrl-C cancels the run, and everything it started. Without `-mode`, Claude Code uses its own
 default from `~/.claude/settings.json`, which may approve everything.
 
+In the browser, a session in a git repository has a Changes tab: every file the agent changed,
+with its diff, updated while it works. A new session can start in a worktree of its own, a branch
+(`orla/<name>`) and a folder under `~/.local/share/orla/worktrees`, made from what the repository
+has checked out. From the Changes tab you commit it, merge it back after a preview that names any
+conflicting files, and remove it. Nothing is lost on the way: a discarded file and the
+uncommitted work of a removed worktree go to a git stash, and a branch whose commits are not
+merged stays. This needs git 2.38 or later.
+
 To reach a server on another machine without exposing it, forward the port over SSH:
 `ssh -L 4410:127.0.0.1:4410 your-server`.
 
@@ -122,6 +130,15 @@ A request with the cookie that changes something must come from Orla's own pages
 | `GET /v1/events` | Server-Sent Events of every session, live only, for lists that follow them all. |
 | `GET /v1/approvals` | Permission requests waiting for an answer, oldest first. |
 | `POST /v1/sessions/{id}/approvals/{approval}` | Answer a permission request: `{"allow": true, "message": "...", "by": "web"}`. 404 once answered or expired. |
+| `GET /v1/git?path=...` | Whether a folder is in a git repository: `{"git": true, "repo": {"root", "main", "branch", "head"}}`. |
+| `POST /v1/worktrees` | New worktree: `{"from": "/path/in/repo", "branch": "optional"}`. Returns it and the `cwd` to start a session in. |
+| `GET /v1/sessions/{id}/changes` | Files the session changed, against its worktree's base or the last commit, with `ahead` and `behind` for a worktree. |
+| `GET /v1/sessions/{id}/diff?path=...` | The unified diff of one changed file, cut at 1 MB. |
+| `POST /v1/sessions/{id}/discard` | Undo the uncommitted changes to one file, `{"path": "..."}`, keeping them in a stash. |
+| `POST /v1/sessions/{id}/commit` | Commit every change in the session's work tree: `{"message": "..."}`. |
+| `GET /v1/sessions/{id}/merge` | What merging the worktree's branch into its base would do: commits ahead and behind, conflicts. |
+| `POST /v1/sessions/{id}/merge` | Merge it, in the work tree that has the base checked out. 409 with git's words when it cannot. |
+| `DELETE /v1/sessions/{id}/worktree` | Remove the session's worktree; uncommitted work goes to a stash, an unmerged branch stays. |
 | `GET /v1/terminals/{id}/stream` | WebSocket. Binary messages are terminal bytes both ways. Text messages are control: `{"type":"resize","cols":..,"rows":..}` from the client, `{"type":"exit","code":..}` from the server. |
 
 ## License

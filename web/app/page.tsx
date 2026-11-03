@@ -6,7 +6,7 @@ import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
 import { TerminalDock } from '@/components/TerminalDock';
 import { api } from '@/lib/api';
-import { folderName, toolSummary } from '@/lib/format';
+import { sessionName, toolSummary } from '@/lib/format';
 import { useMedia, useNow, useOverview } from '@/lib/hooks';
 import { useRoute } from '@/lib/route';
 
@@ -60,7 +60,7 @@ export default function Panel() {
         if (seen.current.has(a.approval_id)) continue;
         const s = sessions.find((x) => x.id === a.session);
         const n = new Notification(`${a.tool} needs your permission`, {
-          body: `${toolSummary(a.input)}${s ? ` · ${folderName(s.cwd)}` : ''}`,
+          body: `${toolSummary(a.input)}${s ? ` · ${sessionName(s)}` : ''}`,
           tag: a.approval_id,
         });
         n.onclick = () => {
@@ -113,7 +113,10 @@ export default function Panel() {
 
   const home = () => go({ view: 'home' });
   const dockBeside = wide && dockPref && route.view !== 'terminals';
-  const cwd = session?.cwd ?? stored('orla.cwd') ?? '';
+  // New terminals start where the session works, or in its repository once its worktree is gone.
+  const cwd = (session?.worktree?.removed ? session.worktree.repo : session?.cwd) ?? stored('orla.cwd') ?? '';
+  // A new session starts from the repository, not from another session's worktree.
+  const suggestedCwd = session ? (session.worktree?.repo ?? session.cwd) : (stored('orla.cwd') ?? '');
 
   let main: React.ReactNode;
   switch (route.view) {
@@ -132,7 +135,7 @@ export default function Panel() {
     case 'new':
       main = (
         <NewSessionPage
-          suggestedCwd={cwd}
+          suggestedCwd={suggestedCwd}
           started={(id) => {
             overview.refresh();
             go({ view: 'session', session: id });
@@ -191,9 +194,10 @@ export default function Panel() {
   }
 
   // Remember the folder of the session in view, for the next new one.
+  const remembered = session?.worktree?.repo ?? session?.cwd;
   useEffect(() => {
-    if (session?.cwd) store('orla.cwd', session.cwd);
-  }, [session?.cwd]);
+    if (remembered) store('orla.cwd', remembered);
+  }, [remembered]);
 
   return (
     <div className="app" data-view={route.view} data-dock={dockBeside ? 'on' : 'off'}>

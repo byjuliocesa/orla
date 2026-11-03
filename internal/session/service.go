@@ -13,6 +13,7 @@ import (
 	"github.com/Julio0Cesar/orla/internal/auth"
 	"github.com/Julio0Cesar/orla/internal/engine/cli"
 	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/Julio0Cesar/orla/internal/git"
 	"github.com/Julio0Cesar/orla/internal/id"
 	"github.com/Julio0Cesar/orla/internal/store"
 )
@@ -50,6 +51,8 @@ type Service struct {
 	// runSecrets and approvals are guarded by mu.
 	runSecrets map[string]runAccess // by run id, while the run is in progress
 	approvals  map[string]*pending  // by approval id
+	// watchers follow the files of sessions with a run in progress, by session id.
+	watchers map[string]*git.Watcher
 
 	// approvalsURL is where a run's MCP endpoint lives, followed by the run id. Empty leaves
 	// permission prompts to the CLI's own settings.
@@ -77,6 +80,7 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 		ctx: ctx, cancel: cancel, active: map[string]*active{},
 		stopping: map[string]bool{}, calls: map[string][]openCall{},
 		runSecrets: map[string]runAccess{}, approvals: map[string]*pending{},
+		watchers:     map[string]*git.Watcher{},
 		approvalWait: defaultApprovalWait,
 	}
 }
@@ -242,6 +246,11 @@ func (s *Service) Close() {
 }
 
 func (s *Service) publish(ctx context.Context, sess store.Session, run, typ string, data any) {
+	if typ == events.RunFinished {
+		// The run's last changes come before its end, so a client that reloads when a run
+		// ends sees them.
+		s.unwatchFiles(sess.ID)
+	}
 	raw, err := json.Marshal(data)
 	if err != nil {
 		s.log.Error("encoding event", "type", typ, "err", err)
@@ -256,5 +265,59 @@ func (s *Service) publish(ctx context.Context, sess store.Session, run, typ stri
 	})
 	if err != nil {
 		s.log.Error("publishing event", "type", typ, "session", sess.ID, "err", err)
+	}
+	switch typ {
+	case events.RunStarted:
+		s.watchFiles(ctx, sess, run)
+	case events.ToolResult:
+		s.mu.Lock()
+		if w := s.watchers[sess.ID]; w != nil {
+			w.Nudge()
+		}
+		s.mu.Unlock()
+	}
+}
+
+// watchEvery is how often a run's work tree is checked between tool results, for changes no
+// tool result announces: a background process, or the owner typing in the terminal.
+const watchEvery = 3 * time.Second
+
+// maxChangedPaths bounds the paths one files.changed event lists.
+const maxChangedPaths = 200
+
+// watchFiles reports the files a run changes as files.changed events, while it is in progress.
+// It is called before the run does anything, so the state it starts from is the run's own.
+func (s *Service) watchFiles(ctx context.Context, sess store.Session, run string) {
+	if s.ctx.Err() != nil {
+		return
+	}
+	record := context.WithoutCancel(s.ctx)
+	w, err := git.Watch(ctx, sess.Cwd, watchEvery, func(paths []string) {
+		data := map[string]any{"paths": paths}
+		if len(paths) > maxChangedPaths {
+			data = map[string]any{"paths": paths[:maxChangedPaths], "more": len(paths) - maxChangedPaths}
+		}
+		s.publish(record, sess, run, events.FilesChanged, data)
+	})
+	if err != nil {
+		return // not a repository, or gone: nothing to review
+	}
+	s.mu.Lock()
+	old := s.watchers[sess.ID]
+	s.watchers[sess.ID] = w
+	s.mu.Unlock()
+	if old != nil {
+		old.Stop()
+	}
+	s.wg.Go(func() { w.Run(s.ctx) })
+}
+
+func (s *Service) unwatchFiles(session string) {
+	s.mu.Lock()
+	w := s.watchers[session]
+	delete(s.watchers, session)
+	s.mu.Unlock()
+	if w != nil {
+		w.Stop()
 	}
 }

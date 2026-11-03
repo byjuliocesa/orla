@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
-import { ago, folderName, permissionModes, toolSummary } from '@/lib/format';
-import type { PendingApproval, Session } from '@/lib/types';
+import { ago, permissionModes, sessionName, toolSummary } from '@/lib/format';
+import type { PendingApproval, Repo, Session } from '@/lib/types';
 import { AskActions, timeLeft } from './Ask';
 import { InputPreview } from './Run';
 import { ArrowLeft, Inbox } from './Icons';
@@ -57,7 +57,7 @@ export function ApprovalsPage({
                   </div>
                   <div className="approval-meta">
                     <button className="link" style={{ color: 'inherit' }} onClick={() => openSession(a.session)}>
-                      {s ? folderName(s.cwd) : a.session}
+                      {s ? sessionName(s) : a.session}
                     </button>
                     <span>{ago(a.asked_at, now)}</span>
                     <span>{timeLeft(a.expires_at, now)}</span>
@@ -91,16 +91,44 @@ export function NewSessionPage({
   const [mode, setMode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [repo, setRepo] = useState<Repo | null>(null);
+  const [isolated, setIsolated] = useState(false);
+  const [branch, setBranch] = useState('');
+
+  // Whether the folder is in a git repository decides whether a worktree is on offer.
+  useEffect(() => {
+    const path = cwd.trim();
+    setRepo(null);
+    if (!path.startsWith('/')) return;
+    let stale = false;
+    const t = setTimeout(() => {
+      api
+        .gitInfo(path)
+        .then((r) => !stale && setRepo(r.git && r.repo ? r.repo : null))
+        .catch(() => {});
+    }, 350);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [cwd]);
 
   const fail = (err: unknown) =>
     setError(err instanceof ApiError || err instanceof Error ? err.message : 'Orla did not answer. Try again.');
+
+  // The folder the agent works in: the one typed, or the same folder in a new worktree.
+  const workFolder = async () => {
+    if (!(repo && isolated)) return cwd.trim();
+    const made = await api.createWorktree(cwd.trim(), branch.trim() || undefined);
+    return made.cwd;
+  };
 
   const start = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const s = await api.createSession(cwd.trim());
+      const s = await api.createSession(await workFolder());
       if (prompt.trim()) await api.startRun(s.id, { prompt: prompt.trim(), permission_mode: mode || undefined });
       started(s.id);
     } catch (err) {
@@ -114,7 +142,7 @@ export function NewSessionPage({
     setBusy(true);
     setError('');
     try {
-      const t = await api.openTerminal({ argv: ['claude'], cwd: cwd.trim() || undefined });
+      const t = await api.openTerminal({ argv: ['claude'], cwd: (await workFolder()) || undefined });
       openedTerminal(t.id);
     } catch (err) {
       fail(err);
@@ -144,6 +172,34 @@ export function NewSessionPage({
             <input id="cwd" className="field mono" required value={cwd} onChange={(e) => setCwd(e.target.value)} placeholder="/home/you/work/project" spellCheck={false} />
             <span className="hint">An absolute path. The session's runs and terminals start there.</span>
           </div>
+          {repo && (
+            <div className="form-row">
+              <label className="check">
+                <input type="checkbox" checked={isolated} onChange={(e) => setIsolated(e.target.checked)} />
+                Work in a new worktree
+              </label>
+              <span className="hint">
+                Claude Code gets a branch and a folder of its own, made from <code>{repo.branch || repo.head?.slice(0, 7)}</code>. Review
+                and merge its work from the session's Changes tab.
+              </span>
+            </div>
+          )}
+          {repo && isolated && (
+            <div className="form-row">
+              <label htmlFor="branch">Branch</label>
+              <input
+                id="branch"
+                className="field mono"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                placeholder="orla/quiet-river"
+                spellCheck={false}
+              />
+              <span className="hint">
+                Leave it empty and Orla makes up a name under <code>orla/</code>.
+              </span>
+            </div>
+          )}
           <div className="form-row">
             <label htmlFor="first-prompt">First prompt</label>
             <textarea id="first-prompt" className="field" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="What should Claude Code do?" />

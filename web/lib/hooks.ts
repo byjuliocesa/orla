@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, Unauthorized } from './api';
 import { openStream } from './sse';
 import { buildTimeline, type Timeline } from './timeline';
-import type { OrlaEvent, PendingApproval, Session, TerminalInfo } from './types';
+import type { Changes, MergeState, OrlaEvent, PendingApproval, Session, TerminalInfo } from './types';
 
 export function toLogin() {
   if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
@@ -135,4 +135,63 @@ export function useMedia(query: string): boolean {
     return () => mq.removeEventListener('change', read);
   }, [query]);
   return match;
+}
+
+export interface Review {
+  changes?: Changes;
+  /** What merging a worktree's branch would do; only for sessions in a worktree. */
+  merge?: MergeState;
+  error: string;
+  reload: () => void;
+}
+
+/**
+ * A session's changes, reloaded when its events say files may have changed (filesSeq), and when
+ * the window comes back into view, since the owner may have edited by hand meanwhile.
+ */
+export function useReview(session: string, filesSeq: number): Review {
+  const [changes, setChanges] = useState<Changes>();
+  const [merge, setMerge] = useState<MergeState>();
+  const [error, setError] = useState('');
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const seq = useRef(0);
+
+  const load = useCallback(async () => {
+    const mine = ++seq.current;
+    try {
+      const c = await api.changes(session);
+      const m = c.git && c.worktree ? await api.mergeState(session).catch(() => undefined) : undefined;
+      if (mine !== seq.current) return; // a newer load is on its way
+      setChanges(c);
+      setMerge(m);
+      setError('');
+    } catch (err) {
+      if (err instanceof Unauthorized) toLogin();
+      else if (mine === seq.current) setError(err instanceof Error ? err.message : 'Orla did not answer.');
+    }
+  }, [session]);
+
+  const reload = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => void load(), 250);
+  }, [load]);
+
+  useEffect(() => {
+    reload();
+  }, [reload, filesSeq]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) reload();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      clearTimeout(timer.current);
+    };
+  }, [reload]);
+
+  return { changes, merge, error, reload };
 }
