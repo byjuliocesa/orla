@@ -4,7 +4,8 @@ A self-hosted workspace for AI agents. Coding agents such as Claude Code and Cod
 terminals on your server, with their steps and code changes visible from the browser, next to
 persistent agents you can reach from chat channels.
 
-Early development: nothing usable yet. Start with [docs/architecture.md](docs/architecture.md).
+Early development. Claude Code works today; Codex, Orla's own agent loop and chat channels are not
+built yet.
 
 ## Layout
 
@@ -24,7 +25,6 @@ internal/mcp/        MCP server the CLIs connect to
 internal/channel/    Chat channels
 internal/webui/      Serves the web client embedded in the binary
 web/                 The web client: Next.js, exported as static files
-docs/                Architecture, events, decisions
 ```
 
 ## Running
@@ -126,7 +126,7 @@ A request with the cookie that changes something must come from Orla's own pages
 | `GET /v1/sessions/{id}` | A session and its runs. |
 | `POST /v1/sessions/{id}/runs` | Start a run: `{"prompt": "...", "permission_mode": "...", "model": "..."}`. 409 while one is in progress. |
 | `POST /v1/sessions/{id}/cancel` | Cancel the run in progress. |
-| `GET /v1/sessions/{id}/events` | Server-Sent Events, from `?after=<seq>` or `Last-Event-ID`. See [docs/events.md](docs/events.md). |
+| `GET /v1/sessions/{id}/events` | Server-Sent Events, from `?after=<seq>` or `Last-Event-ID`. |
 | `GET /v1/events` | Server-Sent Events of every session, live only, for lists that follow them all. |
 | `GET /v1/approvals` | Permission requests waiting for an answer, oldest first. |
 | `POST /v1/sessions/{id}/approvals/{approval}` | Answer a permission request: `{"allow": true, "message": "...", "by": "web"}`. 404 once answered or expired. |

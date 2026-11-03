@@ -4,8 +4,9 @@
 *.db-*
 .env
 /internal/webui/dist/
-/.impeccable/mocks/
-/.impeccable/review/
-/.impeccable/build/
-/.impeccable/live/
-/.impeccable/decision-payload.json
+
+# Design and planning notes stay on this machine.
+/docs/
+/.impeccable/
+/DESIGN.md
+/PRODUCT.md

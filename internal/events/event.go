@@ -11,7 +11,7 @@ const (
 	EngineLoop = "loop"
 )
 
-// Event types. docs/events.md describes the data each one carries.
+// Event types.
 const (
 	RunStarted        = "run.started"
 	RunFinished       = "run.finished"

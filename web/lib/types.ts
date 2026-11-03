@@ -1,4 +1,4 @@
-// Shapes of the Orla API. docs/events.md and the Go handlers are the source of truth.
+// Shapes of the Orla API. The Go handlers and internal/events are the source of truth.
 
 export interface OrlaEvent {
   id: string;
