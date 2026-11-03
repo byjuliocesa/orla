@@ -4,6 +4,7 @@ import { ago, sessionName } from '@/lib/format';
 import type { Route } from '@/lib/route';
 import type { PendingApproval, Session, TerminalInfo } from '@/lib/types';
 import { Bell, Inbox, LogOut, Plus, TerminalIcon } from './Icons';
+import { Lockup } from './Logo';
 
 /** The dot a session shows: its state, or how its last run ended when it is idle. */
 export function dotState(s: Session): string {
@@ -42,7 +43,7 @@ export function Sidebar({
   return (
     <nav className="side" aria-label="Orla">
       <div className="brand">
-        <span className="wordmark">Orla</span>
+        <Lockup height={22} />
         <span className="conn" data-live={live} role="status">
           {live ? 'Live' : 'Reconnecting'}
         </span>

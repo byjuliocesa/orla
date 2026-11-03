@@ -42,6 +42,8 @@
   --radius-sm: 6px;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --sea: #2b8db3; /* the logo's water, used nowhere else */
 }
 
 *,
@@ -327,10 +329,9 @@ textarea {
   padding: 4px 8px 12px;
 }
 
-.wordmark {
-  font-weight: 650;
-  font-size: 16px;
-  letter-spacing: -0.01em;
+.brand .logo-lockup {
+  display: block;
+  color: var(--text);
 }
 
 .conn {
@@ -1283,41 +1284,374 @@ kbd {
   scrollbar-color: #33333a transparent;
 }
 
-/* ---------- Login ---------- */
+/* ---------- Login: "Maré noturna". Lilex throughout, a night sea under the form ---------- */
 
 .login {
+  --night: #091116;
+  --night-text: #dde8eb;
+  --night-dim: #94a8af; /* 7:1 on the night ground */
+  --moon: #d4e8ef;
+  --moon-hover: #eef7fa;
+  --night-edge: #50666f; /* field outline, 3:1 on the ground */
+  --night-edge-hover: #6e8690;
+  --night-fail: #ffa395;
+  --placeholder: #8197a0;
+  --sea-crest: 212, 232, 239;
+  --sea-body: 108, 160, 182;
+  --toast-ground: #071014;
+  --toast-head: #0c181e;
+  --toast-hover: rgba(255, 255, 255, 0.07);
+  --toast-edge: #243a44;
+  --field: rgba(14, 27, 33, 0.82);
+  --badge-ground: rgba(9, 17, 22, 0.72);
+  --badge-edge: #2c4550;
+  --night-glow: #13242c;
+  --lilex: 'Lilex', var(--mono);
+
+  position: relative;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
+  overflow: hidden;
+  background: radial-gradient(120% 70% at 78% 8%, var(--night-glow) 0%, var(--night) 58%);
+  color: var(--night-text);
+  font-family: var(--lilex);
+  font-feature-settings: normal;
 }
 
-.login form {
-  width: min(400px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.login .sea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.login-side {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 36px;
+  max-width: 480px;
+  padding: clamp(28px, 6vw, 72px) max(20px, env(safe-area-inset-right, 0px)) 32px
+    max(clamp(20px, 6vw, 72px), env(safe-area-inset-left, 0px));
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.login[data-state='ok'] .login-side {
+  opacity: 0;
+}
+
+.login .logo-lockup {
+  color: var(--night-text);
 }
 
 .login h1 {
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.015em;
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
-.login p {
-  color: var(--dim);
+.login-lead {
+  margin-top: 12px;
+  color: var(--night-dim);
 }
 
-.login .field {
-  height: 40px;
-  font-family: var(--mono);
+.login code {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--night-text);
+}
+
+.login form {
+  display: grid;
+  gap: 8px;
+}
+
+.login label {
   font-size: 13px;
+  font-weight: 500;
 }
 
-.login .btn {
-  height: 40px;
-  justify-content: center;
+/* The button keeps one width for both labels, so the row never rewraps while logging in. */
+.login-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14ch;
+  gap: 8px;
+}
+
+.login input {
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--night-edge);
+  background: var(--field);
+  color: var(--night-text);
+  font: 400 15px/1 var(--lilex);
+  letter-spacing: 0.02em;
+  caret-color: var(--moon);
+}
+
+.login input:hover {
+  border-color: var(--night-edge-hover);
+}
+
+.login input:focus,
+.login input:focus-visible {
+  outline: none;
+}
+
+/* Login themes: night blue by default; black and white are picked in settings (stored as orla-theme). */
+.login[data-theme='black'] {
+  --night: #0a0a0a;
+  --night-glow: #171717;
+  --night-text: #e8e8e8;
+  --night-dim: #a3a3a3;
+  --moon: #ededed;
+  --moon-hover: #ffffff;
+  --night-edge: #5c5c5c;
+  --night-edge-hover: #7a7a7a;
+  --placeholder: #8a8a8a;
+  --sea-crest: 232, 232, 232;
+  --sea-body: 150, 150, 150;
+  --toast-ground: #0d0d0d;
+  --toast-head: #151515;
+  --toast-edge: #2e2e2e;
+  --field: rgba(20, 20, 20, 0.85);
+  --badge-ground: rgba(12, 12, 12, 0.75);
+  --badge-edge: #333333;
+}
+
+.login[data-theme='white'] {
+  --night: #f2f4f5;
+  --night-glow: #ffffff;
+  --night-text: #111a1f;
+  --night-dim: #4f5d64; /* 6:1 on the ground */
+  --moon: #111a1f;
+  --moon-hover: #26333a;
+  --night-edge: #7f8f97;
+  --night-edge-hover: #5f6f77;
+  --night-fail: #b3261e;
+  --placeholder: #66757c;
+  --sea-crest: 17, 26, 31;
+  --sea-body: 80, 106, 120;
+  --toast-ground: #ffffff;
+  --toast-head: #f2f4f5;
+  --toast-hover: rgba(0, 0, 0, 0.06);
+  --toast-edge: #d3dadd;
+  --field: rgba(255, 255, 255, 0.9);
+  --badge-ground: rgba(255, 255, 255, 0.85);
+  --badge-edge: #cfd7da;
+  color-scheme: light;
+}
+
+.login[data-theme='white'] .toast {
+  box-shadow: 0 14px 36px rgba(17, 26, 31, 0.14);
+}
+
+.login button {
+  height: 46px;
+  border-radius: var(--radius);
+  background: var(--moon);
+  color: var(--night);
+  font: 700 14px/1 var(--lilex);
+  white-space: nowrap;
+  transition: background 0.2s, opacity 0.2s, transform 0.15s var(--ease-out);
+}
+
+.login button:hover:not(:disabled) {
+  background: var(--moon-hover);
+}
+
+.login button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.login button:disabled {
+  opacity: 0.5;
+}
+
+.login[data-state='busy'] button {
+  opacity: 0.8;
+  cursor: progress;
+}
+
+.login input[aria-invalid='true'] {
+  border-color: var(--night-fail);
+}
+
+.login-foot {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 max(20px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
+}
+
+.login-addr {
+  font-size: 12px;
+  color: var(--night-dim);
+}
+
+.repo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--badge-edge);
+  background: var(--badge-ground);
+  color: var(--night-text);
+  font-size: 12px;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.repo-badge:hover {
+  border-color: var(--night-edge-hover);
+  background: var(--toast-head);
+}
+
+.repo-badge:focus-visible {
+  outline: 2px solid var(--moon);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+.repo-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--badge-edge);
+  color: var(--night-dim);
+}
+
+.repo-stars svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Failed attempts, as a short log in the bottom right corner. */
+.toast {
+  position: fixed;
+  z-index: 20;
+  right: max(20px, env(safe-area-inset-right, 0px));
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  width: min(460px, calc(100% - 40px));
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--toast-edge);
+  background: var(--toast-ground);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  font: 400 12.5px/1.6 var(--lilex);
+  animation: toast-in 0.35s var(--ease-out);
+}
+
+.toast-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--toast-edge);
+  background: var(--toast-head);
+  color: var(--night-dim);
+  font-size: 12px;
+}
+
+.toast ol {
+  margin: 0;
+  padding: 10px 12px 12px;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+/* time, level, message: the message wraps under itself, as a terminal log hangs its lines. */
+.toast li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0 10px;
+  color: var(--night-dim);
+  animation: toast-line 0.3s var(--ease-out);
+}
+
+.toast li[data-latest='true'] {
+  color: var(--night-text);
+}
+
+.toast time {
+  color: var(--night-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.toast-level {
+  color: var(--night-fail);
+  font-weight: 700;
+}
+
+.toast li:not([data-latest='true']) .toast-level {
+  opacity: 0.55;
+}
+
+.login .toast-clear {
+  height: auto;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--night-dim);
+  font: 500 12px/1 var(--lilex);
+}
+
+.login .toast-clear:hover:not(:disabled) {
+  background: var(--toast-hover);
+  color: var(--night-text);
+}
+
+.toast-timer {
+  display: block;
+  height: 2px;
+  background: var(--night-fail);
+  opacity: 0.7;
+  transform-origin: left;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes toast-line {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .toast li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .toast-text {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .login-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- Changes: what a session's agent changed, as a code review shows it ---------- */
