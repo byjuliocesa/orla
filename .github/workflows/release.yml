@@ -1,0 +1,100 @@
+# Every push to main becomes a release: the patch number goes up by one, the tag is pushed, and the
+# Linux amd64 binary (web client embedded) is attached. Run it by hand to bump minor or major instead.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version goes up
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          if git tag --points-at HEAD | grep -q '^v[0-9]'; then
+            echo "This commit is already released."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$last" ]; then
+            next=v0.1.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$BUMP" in
+              major) next="v$((major + 1)).0.0" ;;
+              minor) next="v$major.$((minor + 1)).0" ;;
+              *)     next="v$major.$minor.$((patch + 1))" ;;
+            esac
+          fi
+          echo "Releasing $next (previous: ${last:-none})"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - if: steps.version.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - if: steps.version.outputs.skip != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Tagged before the build so the web client reads its version from `git describe`.
+      - name: Tag
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "${{ steps.version.outputs.tag }}"
+
+      - name: Test
+        if: steps.version.outputs.skip != 'true'
+        run: make test
+
+      - name: Build
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          make
+          name="orla-${{ steps.version.outputs.tag }}-linux-amd64"
+          mkdir "$name"
+          cp orla README.md LICENSE "$name/"
+          tar -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      - name: Publish
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          git push origin "$tag"
+          gh release create "$tag" orla-"$tag"-linux-amd64.tar.gz* --title "$tag" --generate-notes
