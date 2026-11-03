@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/session"
-	"github.com/Julio0Cesar/orla/internal/store"
-	"github.com/Julio0Cesar/orla/internal/terminal"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/session"
+	"github.com/byjuliocesa/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/terminal"
 )
 
 // Deps are the core services the API exposes.

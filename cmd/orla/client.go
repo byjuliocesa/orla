@@ -19,7 +19,7 @@ import (
 	"github.com/coder/websocket"
 	"golang.org/x/term"
 
-	"github.com/Julio0Cesar/orla/internal/terminal"
+	"github.com/byjuliocesa/orla/internal/terminal"
 )
 
 // detachKey is Ctrl-], the telnet escape: rarely bound by shells or editors, unlike Ctrl-\ or

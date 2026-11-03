@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 // Append stores e with the next seq of its session and returns that seq.

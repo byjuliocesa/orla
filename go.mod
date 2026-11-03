@@ -1,4 +1,4 @@
-module github.com/Julio0Cesar/orla
+module github.com/byjuliocesa/orla
 
 go 1.27.1
 

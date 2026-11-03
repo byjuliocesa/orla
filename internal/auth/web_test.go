@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 const owner = "orla_test-owner-token"

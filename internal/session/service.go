@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/git"
-	"github.com/Julio0Cesar/orla/internal/id"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/git"
+	"github.com/byjuliocesa/orla/internal/id"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 var (

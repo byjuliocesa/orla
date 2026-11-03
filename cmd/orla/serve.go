@@ -15,14 +15,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/server"
-	"github.com/Julio0Cesar/orla/internal/session"
-	"github.com/Julio0Cesar/orla/internal/store"
-	"github.com/Julio0Cesar/orla/internal/terminal"
-	"github.com/Julio0Cesar/orla/internal/webui"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/server"
+	"github.com/byjuliocesa/orla/internal/session"
+	"github.com/byjuliocesa/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/terminal"
+	"github.com/byjuliocesa/orla/internal/webui"
 )
 
 func serve(args []string) error {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 // gitRepo is a repository on main with one commit, with the owner's git config kept out.

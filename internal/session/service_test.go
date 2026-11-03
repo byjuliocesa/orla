@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 // fakeRunner stands in for a CLI: it reports a native session, emits one tool call and

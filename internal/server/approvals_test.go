@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/session"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/session"
 )
 
 // slowClaude stays in progress long enough to be asked over MCP, and records each run's

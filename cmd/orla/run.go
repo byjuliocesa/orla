@@ -17,7 +17,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 type sessionInfo struct {

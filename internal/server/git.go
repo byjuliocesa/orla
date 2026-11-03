@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/git"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/git"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 // maxPatch bounds one file's diff sent to a client. Past it the client says the diff is too

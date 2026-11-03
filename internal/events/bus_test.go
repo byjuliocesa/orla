@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 func newBus(t *testing.T) *events.Bus {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/terminal"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/terminal"
 )
 
 // maxInputMessage bounds one message from a client: a large paste fits, a runaway client

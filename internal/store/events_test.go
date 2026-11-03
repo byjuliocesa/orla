@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 func open(t *testing.T, path string) *Store {

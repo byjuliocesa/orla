@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/id"
+	"github.com/byjuliocesa/orla/internal/id"
 )
 
 // killGrace is how long a process gets after SIGHUP before it is killed.

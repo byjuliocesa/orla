@@ -8,10 +8,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/id"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/id"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 // Interactive sessions are Claude Code conversations typed into an Orla terminal. Orla does not

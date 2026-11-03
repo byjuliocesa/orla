@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/id"
+	"github.com/byjuliocesa/orla/internal/id"
 )
 
 // Log is where published events are kept. Append assigns the next seq of the event's session.

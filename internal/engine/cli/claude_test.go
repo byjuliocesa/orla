@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 func parseFixture(t *testing.T, name string) ([]Out, Outcome) {

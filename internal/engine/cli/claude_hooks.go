@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 // Hook is what Claude Code sends to a hook command on stdin. Fields not set by an event are

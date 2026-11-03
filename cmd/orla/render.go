@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 // renderer prints a run's events as a readable timeline.

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
 )
 
 // hookTimeout bounds how long Claude Code waits on Orla per hook: PreToolUse holds the tool

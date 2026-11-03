@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 func hookIn(t *testing.T, f fixture, terminal string, h cli.Hook) {

@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
-	"github.com/Julio0Cesar/orla/internal/mcp"
-	"github.com/Julio0Cesar/orla/internal/session"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/mcp"
+	"github.com/byjuliocesa/orla/internal/session"
 )
 
 // runMCP is the MCP endpoint of one headless run. Its only tool answers the CLI's permission

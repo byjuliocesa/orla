@@ -7,9 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
-	"github.com/Julio0Cesar/orla/internal/id"
-	"github.com/Julio0Cesar/orla/internal/store"
+	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/id"
+	"github.com/byjuliocesa/orla/internal/store"
 )
 
 // defaultApprovalWait is how long a request waits for the owner. A headless run is paused

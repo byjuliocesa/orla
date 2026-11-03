@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Julio0Cesar/orla/internal/auth"
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
 )
 
 // maxHookBody bounds a hook payload. A tool response can be large; it is truncated later anyway.

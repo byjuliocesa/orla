@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Julio0Cesar/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/events"
 )
 
 // maxLine bounds one line of CLI output. A tool result can be large, and a line longer than

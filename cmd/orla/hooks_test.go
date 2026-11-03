@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Julio0Cesar/orla/internal/engine/cli"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
 )
 
 const ownSettings = `{
