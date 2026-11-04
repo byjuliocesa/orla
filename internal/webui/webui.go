@@ -47,12 +47,13 @@ func DevProxy(target *url.URL) http.Handler {
 }
 
 // securityHeaders: the export inlines its bootstrap scripts, hence 'unsafe-inline'; everything
-// else, fonts included, comes from Orla itself.
+// else, fonts included, comes from Orla itself. The one outside call is the login's read of the
+// repository's star count from GitHub's public API.
 func securityHeaders(w http.ResponseWriter) {
 	h := w.Header()
 	h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; "+
-		"style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; "+
-		"frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		"style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "+
+		"connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "no-referrer")
 	h.Set("X-Frame-Options", "DENY")

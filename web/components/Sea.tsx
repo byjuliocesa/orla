@@ -2,13 +2,24 @@
 
 import { useEffect, useRef } from 'react';
 
-export type SeaState = 'idle' | 'busy' | 'error' | 'ok';
+export type SeaState = 'idle' | 'busy' | 'error' | 'ok' | 'recede';
 
 const CHARS = ['.', '·', '-', '~', '≈'];
+// Above the top edge by more than the waves' reach, so nothing shows through.
+const COVERED = -60;
 
-// A sea drawn in Lilex characters behind the login form. Its waterline is the form's state: it
-// rests below the form, rises to it while the token is checked, and covers the screen on success.
-export function Sea({ state, above }: { state: SeaState; above: React.RefObject<HTMLElement | null> }) {
+// A sea drawn in Lilex characters. On the login its waterline is the form's state: it rests below
+// the form, rises to it while the token is checked, and covers the screen on success. The panel
+// then opens under a covered sea that recedes off the bottom. Water hides what is beneath it.
+export function Sea({
+  state,
+  above,
+  covered = false,
+}: {
+  state: SeaState;
+  above?: React.RefObject<HTMLElement | null>;
+  covered?: boolean;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
   const aimRef = useRef<() => void>(() => {});
@@ -25,7 +36,7 @@ export function Sea({ state, above }: { state: SeaState; above: React.RefObject<
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let w = 0;
     let h = 0;
-    let level = -1;
+    let level = covered ? COVERED : Number.NaN;
     let target = 0;
     let t = 0;
     let raf = 0;
@@ -33,11 +44,12 @@ export function Sea({ state, above }: { state: SeaState; above: React.RefObject<
 
     const aim = () => {
       const top = cv.getBoundingClientRect().top;
-      const formEnd = (above.current?.getBoundingClientRect().bottom ?? 0) - top;
+      const formEnd = (above?.current?.getBoundingClientRect().bottom ?? 0) - top;
       const rest = Math.max(formEnd + 64, h * 0.62);
       const s = stateRef.current;
-      target = s === 'busy' ? formEnd + 26 : s === 'ok' ? -60 : s === 'error' ? rest + 28 : rest;
-      if (level < 0 || reduce) level = target;
+      target =
+        s === 'busy' ? formEnd + 26 : s === 'ok' ? COVERED : s === 'recede' ? h + 80 : s === 'error' ? rest + 28 : rest;
+      if (Number.isNaN(level) || reduce) level = target;
       if (reduce) draw();
     };
     aimRef.current = aim;
@@ -50,10 +62,21 @@ export function Sea({ state, above }: { state: SeaState; above: React.RefObject<
       const body = css.getPropertyValue('--sea-body').trim() || '108, 160, 182';
       const cell = w < 560 ? 12 : 14;
       const row = cell * 1.25;
+      const step = cell * 0.62;
+      const crestAt = (x: number) => level + Math.sin(x * 0.011 + t * 0.9) * 10 + Math.sin(x * 0.027 - t * 1.3) * 5;
+
+      ctx.fillStyle = css.getPropertyValue('--bg').trim() || '#091116';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x < w + step; x += step) ctx.lineTo(x, crestAt(x) - row / 2);
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fill();
+
       ctx.font = `500 ${cell}px Lilex, ui-monospace, monospace`;
       ctx.textBaseline = 'middle';
-      for (let x = 0; x < w + cell; x += cell * 0.62) {
-        const top = level + Math.sin(x * 0.011 + t * 0.9) * 10 + Math.sin(x * 0.027 - t * 1.3) * 5;
+      for (let x = 0; x < w + cell; x += step) {
+        const top = crestAt(x);
         for (let y = top; y < h + row; y += row) {
           const depth = (y - top) / row;
           const wave = Math.sin(x * 0.02 + y * 0.05 - t * 1.6) + Math.sin(x * 0.006 - t * 0.5);
@@ -77,7 +100,7 @@ export function Sea({ state, above }: { state: SeaState; above: React.RefObject<
       cv.width = w * dpr;
       cv.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (stateRef.current !== 'ok') aim();
+      aim();
       draw();
     };
 
@@ -110,7 +133,7 @@ export function Sea({ state, above }: { state: SeaState; above: React.RefObject<
       document.removeEventListener('visibilitychange', run);
       aimRef.current = () => {};
     };
-  }, [above]);
+  }, [above, covered]);
 
   return <canvas ref={canvas} className="sea" aria-hidden="true" />;
 }

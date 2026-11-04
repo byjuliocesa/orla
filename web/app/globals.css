@@ -1,26 +1,27 @@
-/* Orla's web client. A dark developer console: tone steps instead of borders, Inter for the
-   interface, JetBrains Mono only for commands, paths and output. Blue is the action, amber is
-   what waits on the owner, red is failure or denial, green is success; nothing else is coloured. */
+/* Orla's web client. A night-blue developer console, the same ground as the login's sea: tone
+   steps instead of borders, Inter for the interface, JetBrains Mono only for commands, paths
+   and output. Blue is the action, amber is what waits on the owner, red is failure or denial,
+   green is success; nothing else is coloured. */
 
 :root {
   color-scheme: dark;
 
-  --bg: #0a0a0b;
-  --panel: #111113;
-  --raise: #18181b;
-  --hover: #202024;
-  --press: #26262b;
-  --edge: #62626c; /* inputs only: a field needs its outline, 3:1 against the ground */
-  --edge-hover: #73737e;
+  --bg: #091116;
+  --panel: #0d181d;
+  --raise: #122127;
+  --hover: #172a31;
+  --press: #1c3139;
+  --edge: #526a73; /* inputs only: a field needs its outline, 3:1 against the ground */
+  --edge-hover: #6e8690;
 
-  --text: #ededef;
-  --dim: #a1a1aa;
-  --faint: #878791; /* at least 4.5:1 on every ground, hover included */
+  --text: #dde8eb;
+  --dim: #97aab1;
+  --faint: #859ba2; /* at least 4.5:1 on every ground, hover included */
 
   --accent: #6aa1ff; /* text, focus, selection on dark grounds */
   --accent-fill: #2563eb; /* filled controls under white text, 5.2:1 */
   --accent-hover: #1d4fd0;
-  --selected: #17233a; /* the item in view: a blue tone step, not grey */
+  --selected: #14283a; /* the item in view: a blue tone step, not grey */
   --wait: #f5a524;
   --wait-ground: #261c07;
   --wait-text: #f0d9a8;
@@ -28,7 +29,7 @@
   --fail-text: #ff9da0;
   --fail-ground: #2a1214;
   --ok: #46c37b;
-  --output-text: #cfcfd6; /* what a tool printed, a step below the command that printed it */
+  --output-text: #c3d2d7; /* what a tool printed, a step below the command that printed it */
   --diff-add: #8fe0b0;
   --diff-add-ground: rgba(70, 195, 123, 0.1);
   --diff-del-ground: rgba(242, 85, 90, 0.1);
@@ -44,6 +45,8 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --sea: #2b8db3; /* the logo's water, used nowhere else */
+  --sea-crest: 212, 232, 239; /* the sea of characters, as r, g, b for the canvas */
+  --sea-body: 108, 160, 182;
 }
 
 *,
@@ -116,7 +119,7 @@ textarea {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #33333a transparent;
+  scrollbar-color: #24363e transparent;
 }
 
 *::-webkit-scrollbar {
@@ -125,7 +128,7 @@ textarea {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #33333a;
+  background: #24363e;
   border-radius: 10px;
   border: 3px solid transparent;
   background-clip: padding-box;
@@ -1171,7 +1174,7 @@ kbd {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: #060607;
+  background: #050c10;
 }
 
 .dock-tabs {
@@ -1200,7 +1203,7 @@ kbd {
 }
 
 .tab[aria-selected='true'] {
-  background: #060607;
+  background: #050c10;
   color: var(--text);
 }
 
@@ -1255,7 +1258,7 @@ kbd {
 }
 
 .term-pane .xterm-viewport {
-  background-color: #060607 !important; /* xterm paints its viewport black */
+  background-color: #050c10 !important; /* xterm paints its viewport black */
 }
 
 .term-note {
@@ -1281,13 +1284,13 @@ kbd {
 }
 
 .xterm-viewport {
-  scrollbar-color: #33333a transparent;
+  scrollbar-color: #24363e transparent;
 }
 
 /* ---------- Login: "Maré noturna". Lilex throughout, a night sea under the form ---------- */
 
 .login {
-  --night: #091116;
+  --night: var(--bg);
   --night-text: #dde8eb;
   --night-dim: #94a8af; /* 7:1 on the night ground */
   --moon: #d4e8ef;
@@ -1296,8 +1299,6 @@ kbd {
   --night-edge-hover: #6e8690;
   --night-fail: #ffa395;
   --placeholder: #8197a0;
-  --sea-crest: 212, 232, 239;
-  --sea-body: 108, 160, 182;
   --toast-ground: #071014;
   --toast-head: #0c181e;
   --toast-hover: rgba(255, 255, 255, 0.07);
@@ -1337,8 +1338,51 @@ kbd {
   transition: opacity 0.4s var(--ease-out);
 }
 
-.login[data-state='ok'] .login-side {
+.login[data-state='ok'] .login-side,
+.login[data-state='ok'] .login-foot,
+.login[data-state='ok'] .toast {
   opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+/* After a login: the sea that covered the login recedes while the panel assembles beneath it. */
+.arrival {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.arrival .sea {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+[data-arriving] .side {
+  animation: arrive-side 0.9s var(--ease-out) 0.15s both;
+}
+
+[data-arriving] .main {
+  animation: arrive-up 0.9s var(--ease-out) 0.3s both;
+}
+
+[data-arriving] .dock {
+  animation: arrive-up 0.9s var(--ease-out) 0.45s both;
+}
+
+@keyframes arrive-side {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+@keyframes arrive-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
 }
 
 .login .logo-lockup {

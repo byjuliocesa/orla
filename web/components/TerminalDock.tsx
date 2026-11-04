@@ -8,8 +8,8 @@ import { ArrowLeft, Cross, Plus, TerminalIcon } from './Icons';
 import { TerminalView, type TerminalTheme } from './TerminalView';
 
 const theme: TerminalTheme = {
-  background: '#060607',
-  foreground: '#e4e4e7',
+  background: '#050c10',
+  foreground: '#dde8eb',
   cursor: '#6aa1ff',
   selectionBackground: 'rgba(106, 161, 255, 0.3)',
 };

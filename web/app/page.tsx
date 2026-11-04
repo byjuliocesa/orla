@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage, NewSessionPage } from '@/components/Pages';
 import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
@@ -225,6 +226,7 @@ export default function Panel() {
           onBack={home}
         />
       )}
+      <Arrival />
     </div>
   );
 }

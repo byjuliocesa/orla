@@ -3,8 +3,10 @@
 import '@fontsource/lilex/400.css';
 import '@fontsource/lilex/500.css';
 import '@fontsource/lilex/700.css';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, Unauthorized } from '@/lib/api';
+import { ARRIVAL_KEY } from '@/components/Arrival';
 import { Lockup } from '@/components/Logo';
 import { RepoBadge } from '@/components/RepoBadge';
 import { Sea, type SeaState } from '@/components/Sea';
@@ -17,6 +19,8 @@ export default function Login() {
   const [host, setHost] = useState('');
   const [theme, setTheme] = useState('blue');
   const form = useRef<HTMLFormElement>(null);
+  const router = useRouter();
+  useEffect(() => router.prefetch('/'), [router]);
   useEffect(() => {
     setHost(window.location.host);
     // Written by the settings screen; blue until someone picks another.
@@ -39,9 +43,12 @@ export default function Login() {
       await api.login(token.trim());
       setError(null);
       setState('ok');
-      // Lets the tide cover the screen before the app replaces it.
-      const wait = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
-      setTimeout(() => window.location.assign('/'), wait);
+      // The tide covers the screen, then the panel opens under the same water (see Arrival).
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try {
+        if (!reduce) sessionStorage.setItem(ARRIVAL_KEY, '1');
+      } catch {}
+      setTimeout(() => router.replace('/'), reduce ? 0 : 900);
     } catch (err) {
       fail(err instanceof Unauthorized ? 'token' : 'down');
     }
