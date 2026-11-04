@@ -18,6 +18,10 @@ type Session struct {
 	// Terminal is set on sessions that started in an Orla terminal, reported by the CLI's hooks.
 	Terminal string    `json:"terminal,omitempty"`
 	Created  time.Time `json:"created"`
+	// Title replaces the folder name in lists when the owner names the session.
+	Title    string     `json:"title,omitempty"`
+	Pinned   bool       `json:"pinned,omitempty"`
+	Archived *time.Time `json:"archived,omitempty"`
 }
 
 // Run statuses. A run is "running" from start until it finishes one of the other ways.
@@ -67,7 +71,7 @@ func (s *Store) Sessions(ctx context.Context) ([]Session, error) {
 
 func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Session, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, agent, cwd, native_session, terminal, created FROM sessions `+where, args...)
+		`SELECT id, agent, cwd, native_session, terminal, created, title, pinned, archived FROM sessions `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +80,16 @@ func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Sess
 	for rows.Next() {
 		var x Session
 		var created string
-		if err := rows.Scan(&x.ID, &x.Agent, &x.Cwd, &x.NativeSession, &x.Terminal, &created); err != nil {
+		var archived sql.NullString
+		if err := rows.Scan(&x.ID, &x.Agent, &x.Cwd, &x.NativeSession, &x.Terminal, &created,
+			&x.Title, &x.Pinned, &archived); err != nil {
 			return nil, err
 		}
 		x.Created, _ = time.Parse(time.RFC3339Nano, created)
+		if archived.Valid {
+			t, _ := time.Parse(time.RFC3339Nano, archived.String)
+			x.Archived = &t
+		}
 		out = append(out, x)
 	}
 	return out, rows.Err()
@@ -178,4 +188,43 @@ func (s *Store) RunningRunsOf(ctx context.Context, session string) ([]Run, error
 func (s *Store) SetSessionTerminal(ctx context.Context, id, terminal string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET terminal = ? WHERE id = ?`, terminal, id)
 	return err
+}
+
+func (s *Store) SetSessionTitle(ctx context.Context, id, title string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET title = ? WHERE id = ?`, title, id)
+	return err
+}
+
+func (s *Store) SetSessionPinned(ctx context.Context, id string, pinned bool) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET pinned = ? WHERE id = ?`, pinned, id)
+	return err
+}
+
+// SetSessionArchived archives the session at the given time, or brings it back with nil.
+func (s *Store) SetSessionArchived(ctx context.Context, id string, at *time.Time) error {
+	var v any
+	if at != nil {
+		v = formatTime(*at)
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET archived = ? WHERE id = ?`, v, id)
+	return err
+}
+
+// DeleteSession removes a session with its runs and events. Its folder and worktree stay on disk.
+func (s *Store) DeleteSession(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, q := range []string{
+		`DELETE FROM events WHERE session = ?`,
+		`DELETE FROM runs WHERE session = ?`,
+		`DELETE FROM sessions WHERE id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

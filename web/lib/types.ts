@@ -42,6 +42,10 @@ export interface Session {
   last_run?: Run;
   /** Set when the session works in a worktree Orla made. */
   worktree?: Worktree;
+  /** The owner's name for it, in place of the folder. */
+  title?: string;
+  pinned?: boolean;
+  archived?: string;
 }
 
 export interface Worktree {

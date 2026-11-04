@@ -4,7 +4,9 @@ import { WORDMARK_GLYPHS } from './wordmark';
 // useId's characters are not valid inside url(#…).
 const useClipId = () => 'logo' + useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
-const WAVE = 'M0 35 C8 29 16 29 24 35 S40 41 48 35 S60 29 64 33 V64 H0 Z';
+// Two wavelengths more than the mark shows, one each side, so the water can travel one wavelength
+// (48) and loop; inside the circle it draws the same line as before.
+const WAVE = 'M-48 35 C-40 29 -32 29 -24 35 S-8 41 0 35 S16 29 24 35 S40 41 48 35 S64 29 72 35 S88 41 96 35 S112 29 120 35 V64 H-48 Z';
 
 // The ring takes currentColor so the mark follows the text it sits beside.
 function MarkShapes({ clip }: { clip: string }) {
@@ -15,7 +17,10 @@ function MarkShapes({ clip }: { clip: string }) {
           <circle cx="32" cy="32" r="22" />
         </clipPath>
       </defs>
-      <path clipPath={`url(#${clip})`} fill="var(--sea)" d={WAVE} />
+      {/* The clip sits on the group, so moving the water does not move the circle that holds it. */}
+      <g clipPath={`url(#${clip})`}>
+        <path className="logo-wave" fill="var(--sea)" d={WAVE} />
+      </g>
       <circle cx="32" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="5" />
     </>
   );

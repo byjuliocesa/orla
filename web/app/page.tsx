@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage, NewSessionPage } from '@/components/Pages';
 import { SessionView } from '@/components/SessionView';
@@ -35,10 +35,13 @@ export default function Panel() {
   const wide = useMedia('(min-width: 1280px)');
   const phone = useMedia('(max-width: 860px)');
   const [dockPref, setDockPref] = useState(true);
+  // Turned on from the settings screen, still to come; what was turned on before keeps working.
   const [notify, setNotify] = useState(false);
+  const [rail, setRail] = useState(false);
 
   useEffect(() => {
     setDockPref(stored('orla.dock') !== 'off');
+    setRail(stored('orla.side') === 'rail');
     setNotify(stored('orla.notify') === 'on' && typeof Notification !== 'undefined' && Notification.permission === 'granted');
   }, []);
 
@@ -73,19 +76,6 @@ export default function Panel() {
     seen.current = ids;
   }, [approvals, loaded, notify, sessions, go]);
 
-  const toggleNotify = useCallback(async () => {
-    if (notify) {
-      setNotify(false);
-      store('orla.notify', 'off');
-      return;
-    }
-    if (typeof Notification === 'undefined') return;
-    const permission = await Notification.requestPermission();
-    const on = permission === 'granted';
-    setNotify(on);
-    store('orla.notify', on ? 'on' : 'off');
-  }, [notify]);
-
   const toggleDock = useCallback(() => {
     if (!wide) {
       go({ view: 'terminals', session: route.session, terminal: session?.terminal });
@@ -96,6 +86,24 @@ export default function Panel() {
       return !on;
     });
   }, [wide, go, route.session, session?.terminal]);
+
+  const toggleRail = useCallback(() => {
+    setRail((on) => {
+      store('orla.side', on ? 'open' : 'rail');
+      return !on;
+    });
+  }, []);
+
+  const refresh = overview.refresh;
+  const actions = useMemo(() => {
+    const change = (id: string, c: Parameters<typeof api.updateSession>[1]) => api.updateSession(id, c).then(refresh);
+    return {
+      rename: (id: string, title: string) => change(id, { title }),
+      pin: (id: string, pinned: boolean) => change(id, { pinned }),
+      archive: (id: string, archived: boolean) => change(id, { archived }),
+      remove: (id: string) => api.deleteSession(id).then(refresh),
+    };
+  }, [refresh]);
 
   const logout = useCallback(async () => {
     await api.logout().catch(() => {});
@@ -201,19 +209,16 @@ export default function Panel() {
   }, [remembered]);
 
   return (
-    <div className="app" data-view={route.view} data-dock={dockBeside ? 'on' : 'off'}>
+    <div className="app" data-view={route.view} data-dock={dockBeside ? 'on' : 'off'} data-side={rail ? 'rail' : 'open'}>
       <Sidebar
         route={route}
         go={go}
         sessions={sessions}
-        approvals={approvals}
-        terminals={terminals}
-        live={overview.live}
         loaded={loaded}
-        now={now}
-        notify={notify}
-        toggleNotify={() => void toggleNotify()}
         logout={() => void logout()}
+        rail={rail}
+        toggleRail={toggleRail}
+        actions={actions}
       />
       <main className="main">{main}</main>
       {dockBeside && (

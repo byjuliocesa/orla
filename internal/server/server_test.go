@@ -103,6 +103,8 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"GET", "/v1/sessions"},
 		{"POST", "/v1/sessions"},
 		{"GET", "/v1/sessions/ses_x"},
+		{"PATCH", "/v1/sessions/ses_x"},
+		{"DELETE", "/v1/sessions/ses_x"},
 		{"POST", "/v1/sessions/ses_x/runs"},
 		{"POST", "/v1/sessions/ses_x/cancel"},
 		{"GET", "/v1/sessions/ses_x/events"},
@@ -404,5 +406,47 @@ func TestTerminalEnvironmentHoldsOnlyItsHookToken(t *testing.T) {
 	}
 	if code := postHook(t, srv, a.ID, testToken); code != http.StatusUnauthorized {
 		t.Fatalf("owner token accepted as a hook token = %d", code)
+	}
+}
+
+func TestSessionsAreRenamedPinnedArchivedAndRemoved(t *testing.T) {
+	srv := newServer(t)
+	var x struct {
+		ID       string
+		Title    string
+		Pinned   bool
+		Archived *time.Time
+	}
+	_ = json.NewDecoder(request(t, srv, "POST", "/v1/sessions", testToken,
+		map[string]string{"cwd": t.TempDir()}).Body).Decode(&x)
+
+	res := request(t, srv, "PATCH", "/v1/sessions/"+x.ID, testToken,
+		map[string]any{"title": "  Login fix ", "pinned": true, "archived": true})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("patch = %d", res.StatusCode)
+	}
+	_ = json.NewDecoder(res.Body).Decode(&x)
+	if x.Title != "Login fix" || !x.Pinned || x.Archived == nil {
+		t.Fatalf("after patch: %+v", x)
+	}
+
+	// A field left out stays; archived false brings the session back.
+	x.Archived = nil
+	_ = json.NewDecoder(request(t, srv, "PATCH", "/v1/sessions/"+x.ID, testToken,
+		map[string]any{"archived": false}).Body).Decode(&x)
+	if x.Title != "Login fix" || !x.Pinned || x.Archived != nil {
+		t.Fatalf("after unarchive: %+v", x)
+	}
+
+	if res := request(t, srv, "PATCH", "/v1/sessions/"+x.ID, testToken,
+		map[string]any{"title": strings.Repeat("a", 121)}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("long title = %d", res.StatusCode)
+	}
+
+	if res := request(t, srv, "DELETE", "/v1/sessions/"+x.ID, testToken, nil); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete = %d", res.StatusCode)
+	}
+	if res := request(t, srv, "GET", "/v1/sessions/"+x.ID, testToken, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("get after delete = %d", res.StatusCode)
 	}
 }

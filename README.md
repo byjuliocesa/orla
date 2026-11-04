@@ -124,6 +124,8 @@ A request with the cookie that changes something must come from Orla's own pages
 | `GET /v1/sessions` | Agent sessions, each with its `state` (`working`, `waiting`, `idle`, `ended`), `pending` requests and `last_run`. |
 | `POST /v1/sessions` | New session: `{"agent": "claude", "cwd": "..."}`. |
 | `GET /v1/sessions/{id}` | A session and its runs. |
+| `PATCH /v1/sessions/{id}` | Rename, pin or archive it: `{"title": "...", "pinned": true, "archived": true}`, each optional. |
+| `DELETE /v1/sessions/{id}` | Forget a session at rest, with its runs and events; its folder stays. 409 while it works, waits on you or holds a worktree. |
 | `POST /v1/sessions/{id}/runs` | Start a run: `{"prompt": "...", "permission_mode": "...", "model": "..."}`. 409 while one is in progress. |
 | `POST /v1/sessions/{id}/cancel` | Cancel the run in progress. |
 | `GET /v1/sessions/{id}/events` | Server-Sent Events, from `?after=<seq>` or `Last-Event-ID`. |

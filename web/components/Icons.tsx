@@ -80,13 +80,44 @@ export const Bell = () => (
 );
 export const LogOut = () => (
   <Icon>
-    <path d="M6.5 3H3.5v10h3M10 5l3 3-3 3M13 8H6.5" />
+    <path d="M6.5 3H3.5v10h3" />
+    <path className="i-move" d="M10 5l3 3-3 3M13 8H6.5" />
   </Icon>
 );
 export const PanelRight = () => (
   <Icon>
     <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
     <path d="M9.5 3v10" />
+  </Icon>
+);
+export const PanelLeft = () => (
+  <Icon>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <path className="i-move" d="M6.5 3v10" />
+  </Icon>
+);
+export const Pencil = () => (
+  <Icon>
+    <path d="M10.5 3.5 12.5 5.5 6 12H4v-2z" />
+    <path d="M9 5l2 2" />
+  </Icon>
+);
+export const Pin = () => (
+  <Icon>
+    <path d="M6 2.5h4M7 2.5v4L4.5 9h7L9 6.5v-4M8 9v4.5" />
+  </Icon>
+);
+export const Archive = () => (
+  <Icon>
+    <rect x="2.5" y="3" width="11" height="3" rx="0.8" />
+    <path d="M3.5 6v6.5h9V6" />
+    <path className="i-move" d="M6.5 8.5h3" />
+  </Icon>
+);
+export const Copy = () => (
+  <Icon>
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
   </Icon>
 );
 export const Menu = () => (
@@ -143,7 +174,8 @@ export const Commit = () => (
 );
 export const Trash = () => (
   <Icon>
-    <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
+    <path className="i-lid" d="M3 4.5h10M6.5 4.5V3h3v1.5" />
+    <path d="M4.5 4.5l.6 8.5h5.8l.6-8.5" />
   </Icon>
 );
 export const Star = () => (

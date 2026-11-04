@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/byjuliocesa/orla/internal/events"
 	"github.com/byjuliocesa/orla/internal/session"
@@ -115,6 +117,75 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"session": s.view(r.Context(), x), "runs": runs})
+}
+
+// updateSession changes what the owner sets on a session; fields left out stay as they are.
+func (s *Server) updateSession(w http.ResponseWriter, r *http.Request) {
+	x, ok := s.lookup(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Title    *string `json:"title"`
+		Pinned   *bool   `json:"pinned"`
+		Archived *bool   `json:"archived"`
+	}
+	if !decode(w, r, &body) {
+		return
+	}
+	ctx := r.Context()
+	var err error
+	if body.Title != nil {
+		title := strings.TrimSpace(*body.Title)
+		if utf8.RuneCountInString(title) > 120 {
+			writeError(w, http.StatusBadRequest, "title is longer than 120 characters")
+			return
+		}
+		err = errors.Join(err, s.store.SetSessionTitle(ctx, x.ID, title))
+	}
+	if body.Pinned != nil {
+		err = errors.Join(err, s.store.SetSessionPinned(ctx, x.ID, *body.Pinned))
+	}
+	if body.Archived != nil {
+		var at *time.Time
+		if *body.Archived {
+			now := time.Now()
+			at = &now
+		}
+		err = errors.Join(err, s.store.SetSessionArchived(ctx, x.ID, at))
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if x, err = s.store.Session(ctx, x.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, s.view(ctx, x))
+}
+
+// deleteSession forgets a session that is at rest. A session still working, waiting on the owner
+// or holding a worktree is refused, so removing it never loses work.
+func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
+	x, ok := s.lookup(w, r)
+	if !ok {
+		return
+	}
+	v := s.view(r.Context(), x)
+	switch {
+	case v.State == "working" || v.State == "waiting":
+		writeError(w, http.StatusConflict, "the session is still working; stop it first")
+		return
+	case v.Worktree != nil && v.Worktree.Removed == nil:
+		writeError(w, http.StatusConflict, "the session has a worktree; remove it from the Changes tab first")
+		return
+	}
+	if err := s.store.DeleteSession(r.Context(), x.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) startRun(w http.ResponseWriter, r *http.Request) {

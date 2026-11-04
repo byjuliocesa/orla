@@ -303,13 +303,15 @@ textarea {
 /* ---------- Shell ---------- */
 
 .app {
+  --side-now: var(--side);
   display: grid;
-  grid-template-columns: var(--side) minmax(0, 1fr);
+  grid-template-columns: var(--side-now) minmax(0, 1fr);
   height: 100dvh;
+  transition: grid-template-columns 280ms var(--ease-out);
 }
 
 .app[data-dock='on'] {
-  grid-template-columns: var(--side) minmax(0, 1fr) var(--dock);
+  grid-template-columns: var(--side-now) minmax(0, 1fr) var(--dock);
 }
 
 .main > .dock {
@@ -317,7 +319,10 @@ textarea {
 }
 
 .side {
+  position: relative;
   background: var(--panel);
+  overflow: hidden;
+  transition: background-color 280ms var(--ease-out);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -325,39 +330,76 @@ textarea {
   gap: 4px;
 }
 
+/* Narrowing squeezes flex items; the icons and the mark keep their size. */
+.side svg {
+  flex-shrink: 0;
+}
+
 .brand {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px 12px;
+  padding: 4px 8px 14px;
 }
 
 .brand .logo-lockup {
   display: block;
   color: var(--text);
+  transform-origin: 11px 50%;
 }
 
-.conn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--faint);
+/* Hovering the logo sets its water moving: one wavelength, looped. */
+.logo-wave {
+  transition: transform 600ms var(--ease-out);
 }
 
-.conn::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ok);
+.brand:hover .logo-wave {
+  animation: logo-swell 1.4s linear infinite;
 }
 
-.conn[data-live='false']::before {
-  background: var(--faint); /* amber is kept for what waits on the owner */
+@keyframes logo-swell {
+  from {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(24px, -1.5px);
+  }
+  to {
+    transform: translate(48px, 0);
+  }
+}
+
+.side-toggle {
+  margin-right: -4px;
+}
+
+/* ---------- Icons that move on hover ---------- */
+
+.side .i-move,
+.side .icon-btn svg,
+.side .nav-item svg,
+.menu-item svg,
+.menu-item .i-move,
+.menu-item .i-lid {
+  transition: transform 260ms var(--ease-out);
+}
+
+.side-toggle:hover .i-move {
+  transform: translateX(-1.5px);
+}
+
+.side-new:hover svg,
+.side-new-wide:hover svg {
+  transform: rotate(90deg);
+}
+
+.side-logout:hover .i-move {
+  transform: translateX(1.5px);
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -382,20 +424,40 @@ textarea {
 
 .nav-item .label {
   flex: 1;
+  white-space: nowrap;
+}
+
+.side-new-wide {
+  justify-content: flex-start;
+  background: var(--raise);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.side-new-wide:active {
+  transform: translateY(1px);
 }
 
 .side-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 4px 4px 10px;
+  padding: 6px 4px 4px 10px;
   color: var(--faint);
   font-size: 12px;
   font-weight: 500;
 }
 
+.side-head span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .sessions {
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   margin: 0 -4px;
   padding: 0 4px;
@@ -404,13 +466,14 @@ textarea {
 .session {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) auto;
-  gap: 4px 10px;
+  gap: 10px;
   align-items: center;
   width: 100%;
-  padding: 8px 8px 8px 10px;
+  height: 34px;
+  padding: 0 8px 0 10px;
   border-radius: var(--radius-sm);
   text-align: left;
-  transition: background-color 120ms var(--ease-out);
+  transition: padding 280ms var(--ease-out), background-color 120ms var(--ease-out);
 }
 
 .session:hover {
@@ -422,51 +485,87 @@ textarea {
 }
 
 .session-name {
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.session-meta {
-  font-size: 12px;
+.session[data-archived] .session-name {
+  color: var(--dim);
+}
+
+.session-pin {
+  display: grid;
   color: var(--faint);
-  white-space: nowrap;
 }
 
-.session-meta[data-state='waiting'] {
-  color: var(--wait);
+.session-pin svg {
+  width: 13px;
+  height: 13px;
 }
 
-/* Muted ink drops under 4.5:1 on the selection navy. */
-.session[aria-current='page'] .session-meta:not([data-state='waiting']) {
-  color: var(--dim);
+.session-rename {
+  min-width: 0;
+  height: 26px;
+  margin-left: -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--text);
+  font: inherit;
+  outline: none;
 }
 
-.session-sub {
-  grid-column: 2 / 4;
-  font-size: 12.5px;
-  color: var(--dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.session[data-renaming] {
+  grid-template-columns: 8px minmax(0, 1fr);
+  background: var(--selected);
 }
 
 .dot {
+  position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--faint);
 }
 
+/* Working: a ring turns around the dot, the way a spinner does, without hiding the colour. */
 .dot[data-state='working'] {
   background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(106, 161, 255, 0.5);
-  animation: beat 2s var(--ease-out) infinite;
+}
+
+.dot[data-state='working']::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: rgba(106, 161, 255, 0.35);
+  animation: dot-turn 0.9s linear infinite;
+}
+
+@keyframes dot-turn {
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 .dot[data-state='waiting'] {
   background: var(--wait);
+  animation: dot-call 1.8s var(--ease-out) infinite;
+}
+
+@keyframes dot-call {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(245, 165, 36, 0);
+  }
 }
 
 .dot[data-state='failed'] {
@@ -482,30 +581,436 @@ textarea {
   box-shadow: inset 0 0 0 1.5px var(--faint);
 }
 
-@keyframes beat {
-  70% {
-    box-shadow: 0 0 0 5px rgba(106, 161, 255, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(106, 161, 255, 0);
-  }
+.side-fold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.side-empty {
-  padding: 8px 10px;
-  color: var(--faint);
-  font-size: 13px;
+.side-fold:hover {
+  color: var(--dim);
+}
+
+.side-fold::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 180ms var(--ease-out);
+}
+
+.side-fold[aria-expanded='true']::after {
+  transform: translateY(1px) rotate(-135deg);
 }
 
 .side-foot {
   display: flex;
-  gap: 2px;
   padding-top: 8px;
 }
 
-.side-foot .nav-item {
+.side-logout {
+  color: var(--fail-text);
+}
+
+.side-logout:hover {
+  background: var(--fail-ground);
+  color: var(--fail);
+}
+
+/* ---------- Folded to a rail ---------- */
+
+/* Folded, the sidebar keeps each icon where it was and lets the words fade, so the fold reads as
+   the panel narrowing rather than redrawing. 56px leaves 36px inside: icons sit on its middle. */
+
+.side .label,
+.side-head span,
+.session-name,
+.session-pin,
+.side-fold,
+.brand .logo-lockup,
+.side-toggle {
+  transition: opacity 180ms var(--ease-out), transform 320ms var(--ease-out);
+}
+
+@media (min-width: 861px) {
+  .app[data-side='rail'] {
+    --side-now: 56px;
+  }
+
+  /* A step below the page, like the terminal's ground, so the rail reads as its own strip. */
+  .app[data-side='rail'] .side {
+    background: #060d11;
+    box-shadow: inset -1px 0 0 rgba(var(--sea-crest), 0.06);
+  }
+
+  .app[data-side='rail'] .side .label,
+  .app[data-side='rail'] .side-head span,
+  .app[data-side='rail'] .session-name,
+  .app[data-side='rail'] .session-pin,
+  .app[data-side='rail'] .side-fold {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .app[data-side='rail'] .side-head {
+    padding-left: 3px;
+  }
+
+  .app[data-side='rail'] .side-head span {
+    flex-grow: 0;
+    flex-basis: 0;
+  }
+
+  .app[data-side='rail'] .session {
+    padding-left: 14px;
+  }
+
+  .app[data-side='rail'] .session[data-archived] {
+    display: none;
+  }
+
+  .app[data-side='rail'] .side-new-wide {
+    background: transparent;
+    color: var(--dim);
+  }
+
+  .app[data-side='rail'] .side-new-wide:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .brand .logo-lockup {
+    clip-path: inset(0 0 0 0);
+    transition: opacity 200ms var(--ease-out), clip-path 280ms var(--ease-out), transform 320ms var(--ease-out);
+  }
+
+  /* The wordmark would show its first letter past the mark. */
+  .app[data-side='rail'] .brand .logo-lockup {
+    clip-path: inset(0 calc(100% - 23px) 0 0);
+  }
+
+  /* Folded, the mark is the way back: on hover it turns into the expand button. */
+  .app[data-side='rail'] .side-toggle {
+    position: absolute;
+    left: 4px;
+    top: 0;
+    width: 30px;
+    margin: 0;
+    background: transparent;
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+  }
+
+  .app[data-side='rail'] .brand:hover .side-toggle,
+  .app[data-side='rail'] .side-toggle:focus-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .app[data-side='rail'] .brand:hover .logo-lockup,
+  .app[data-side='rail'] .brand:has(.side-toggle:focus-visible) .logo-lockup {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+  }
+
+  .app[data-side='rail'] .side-toggle:hover .i-move {
+    transform: translateX(1.5px);
+  }
+}
+
+@media (max-width: 860px) {
+  .side-toggle {
+    display: none;
+  }
+}
+
+/* ---------- Tooltip ---------- */
+
+.tip {
+  position: fixed;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--raise);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 6px 20px rgba(2, 6, 9, 0.55);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tip-in 160ms var(--ease-out) both;
+}
+
+.tip[data-side='right'] {
+  transform: translateY(-50%);
+  --tip-from: translate(-4px, -50%);
+}
+
+.tip[data-side='top'] {
+  transform: translate(-50%, -100%);
+  --tip-from: translate(-50%, calc(-100% + 4px));
+}
+
+.tip[data-side='bottom'] {
+  transform: translateX(-50%);
+  --tip-from: translate(-50%, -4px);
+}
+
+/* The arrow, pointing back at what the tooltip names. */
+.tip[data-side='right']::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--raise);
+  box-shadow: inset 1px -1px 0 rgba(var(--sea-crest), 0.1);
+  transform: translateY(-50%) rotate(45deg);
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: var(--tip-from);
+  }
+}
+
+.tip-state {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.tip-state[data-state='waiting'] {
+  color: var(--wait);
+}
+
+.tip-state[data-state='working'] {
+  color: var(--accent);
+}
+
+.tip-state[data-state='failed'] {
+  color: var(--fail-text);
+}
+
+/* ---------- Session menu ---------- */
+
+.menu {
+  position: fixed;
+  z-index: 250;
+  display: grid;
+  min-width: 196px;
+  padding: 5px;
+  border-radius: var(--radius);
+  background: var(--raise);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 12px 32px rgba(2, 6, 9, 0.6);
+  transform-origin: top left;
+  animation: menu-in 170ms var(--ease-out) both;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   height: 32px;
+  padding: 0 10px;
+  border-radius: 5px;
+  color: var(--text);
   font-size: 13px;
+  text-align: left;
+  outline: none;
+  animation: menu-item-in 200ms var(--ease-out) both;
+}
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.menu-item svg {
+  color: var(--dim);
+}
+
+.menu-item:hover,
+.menu-item:focus-visible,
+.menu-item:focus {
+  background: var(--hover);
+}
+
+.menu-item:hover svg,
+.menu-item:focus svg {
+  color: var(--text);
+}
+
+.menu-item[data-action='rename']:is(:hover, :focus) svg {
+  transform: rotate(-14deg);
+}
+
+.menu-item[data-action='pin']:is(:hover, :focus) svg {
+  transform: rotate(24deg) translateY(1px);
+}
+
+.menu-item[data-action='copy']:is(:hover, :focus) svg {
+  transform: translate(1px, -1px);
+}
+
+.menu-item[data-action='archive']:is(:hover, :focus) .i-move {
+  transform: translateY(1.5px);
+}
+
+.menu-item[data-action='remove']:is(:hover, :focus) .i-lid {
+  transform: translateY(-1.5px) rotate(-8deg);
+  transform-origin: 3px 4.5px;
+}
+
+.menu-item[data-danger='true'],
+.menu-item[data-danger='true'] svg {
+  color: var(--fail-text);
+}
+
+.menu-item[data-danger='true']:is(:hover, :focus) {
+  background: var(--fail-ground);
+}
+
+.menu-item[data-danger='true']:is(:hover, :focus),
+.menu-item[data-danger='true']:is(:hover, :focus) svg {
+  color: var(--fail);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(var(--sea-crest), 0.08);
+}
+
+/* ---------- Confirm dialog ---------- */
+
+.confirm {
+  max-width: min(400px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 16px 36px rgba(2, 6, 9, 0.45);
+}
+
+.confirm[open] {
+  animation: confirm-in 220ms var(--ease-out) both;
+}
+
+.confirm::backdrop {
+  background: rgba(3, 7, 10, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.confirm[open]::backdrop {
+  animation: confirm-fade 220ms var(--ease-out) both;
+}
+
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes confirm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.confirm-box {
+  display: grid;
+  gap: 10px;
+  padding: 20px 20px 16px;
+}
+
+.confirm h2 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.confirm-body {
+  color: var(--dim);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.confirm-error {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--fail-ground);
+  color: var(--fail-text);
+  font-size: 13px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.confirm .btn-danger {
+  background: #8f1d22;
+  color: #fff;
+}
+
+.confirm .btn-danger:hover:not(:disabled) {
+  background: #b0242a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app,
+  .side,
+  .session,
+  .brand:hover .logo-wave,
+  .dot[data-state='working']::after,
+  .dot[data-state='waiting'],
+  .tip,
+  .menu,
+  .menu-item,
+  .confirm[open],
+  .confirm[open]::backdrop {
+    animation: none;
+    transition: none;
+  }
 }
 
 /* ---------- Main ---------- */

@@ -57,6 +57,8 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("GET /v1/sessions", s.listSessions)
 	api.HandleFunc("POST /v1/sessions", s.createSession)
 	api.HandleFunc("GET /v1/sessions/{id}", s.getSession)
+	api.HandleFunc("PATCH /v1/sessions/{id}", s.updateSession)
+	api.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
 	api.HandleFunc("POST /v1/sessions/{id}/runs", s.startRun)
 	api.HandleFunc("POST /v1/sessions/{id}/cancel", s.cancelRun)
 	api.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)

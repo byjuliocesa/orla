@@ -51,7 +51,8 @@ export function folderName(cwd: string): string {
 }
 
 /** What a session is called in lists: its folder, or its repository and worktree branch. */
-export function sessionName(s: { cwd: string; worktree?: { repo: string; branch: string } }): string {
+export function sessionName(s: { cwd: string; title?: string; worktree?: { repo: string; branch: string } }): string {
+  if (s.title) return s.title;
   if (!s.worktree) return folderName(s.cwd);
   return `${folderName(s.worktree.repo)} · ${s.worktree.branch.replace(/^orla\//, '')}`;
 }
