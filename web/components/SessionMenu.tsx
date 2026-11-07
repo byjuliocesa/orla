@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Session } from '@/lib/types';

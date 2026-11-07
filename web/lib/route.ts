@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useState } from 'react';
 
 // The export has one page; where it shows lives in the query string, so links and the back

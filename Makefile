@@ -4,7 +4,7 @@
 all: web
 	go build -tags webui -o orla ./cmd/orla
 
-# The client is exported by Next.js, then copied where go:embed can reach it.
+# The client is built by Vite, then copied where go:embed can reach it.
 web:
 	cd web && npm ci --no-audit --no-fund && npm run build
 	rm -rf internal/webui/dist
@@ -18,4 +18,4 @@ test:
 	cd web && npm test
 
 clean:
-	rm -rf orla web/out web/.next internal/webui/dist
+	rm -rf orla web/out internal/webui/dist

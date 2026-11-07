@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { parsePatch, type ParsedDiff } from '@/lib/diff';

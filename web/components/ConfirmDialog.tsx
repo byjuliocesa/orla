@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef, type ReactNode } from 'react';
 
 /** A modal question with one way forward and one way back. Escape and Cancel both close it. */

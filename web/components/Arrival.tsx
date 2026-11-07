@@ -1,5 +1,3 @@
-'use client';
-
 import '@fontsource/lilex/500.css';
 import { useEffect, useState } from 'react';
 import { Sea, type SeaState } from './Sea';

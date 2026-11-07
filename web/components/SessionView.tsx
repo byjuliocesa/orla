@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { between, clock, duration, folderName, modelName, permissionModes, sessionName, shortPath, tokens } from '@/lib/format';

@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage, NewSessionPage } from '@/components/Pages';

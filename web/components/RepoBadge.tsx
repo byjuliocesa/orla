@@ -1,10 +1,8 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { GitHubMark, Star } from './Icons';
 
 const REPO = 'byjuliocesa/orla';
-const VERSION = process.env.NEXT_PUBLIC_ORLA_VERSION ?? 'dev';
+const VERSION = import.meta.env.VITE_ORLA_VERSION ?? 'dev';
 const CACHE = 'orla-stars';
 
 // GitHub allows 60 unauthenticated requests an hour per address, so the count is kept for the tab's life.

@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef, useState } from 'react';
 
 export type LoginError = { id: number; kind: 'token' | 'down'; at: Date };

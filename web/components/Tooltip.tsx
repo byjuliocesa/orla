@@ -1,5 +1,3 @@
-'use client';
-
 import { cloneElement, useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 

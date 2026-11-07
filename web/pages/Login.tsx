@@ -1,9 +1,6 @@
-'use client';
-
 import '@fontsource/lilex/400.css';
 import '@fontsource/lilex/500.css';
 import '@fontsource/lilex/700.css';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, Unauthorized } from '@/lib/api';
 import { ARRIVAL_KEY } from '@/components/Arrival';
@@ -19,8 +16,6 @@ export default function Login() {
   const [host, setHost] = useState('');
   const [theme, setTheme] = useState('blue');
   const form = useRef<HTMLFormElement>(null);
-  const router = useRouter();
-  useEffect(() => router.prefetch('/'), [router]);
   useEffect(() => {
     setHost(window.location.host);
     // Written by the settings screen; blue until someone picks another.
@@ -48,7 +43,10 @@ export default function Login() {
       try {
         if (!reduce) sessionStorage.setItem(ARRIVAL_KEY, '1');
       } catch {}
-      setTimeout(() => router.replace('/'), reduce ? 0 : 900);
+      setTimeout(() => {
+        history.replaceState(null, '', '/');
+        dispatchEvent(new PopStateEvent('popstate'));
+      }, reduce ? 0 : 900);
     } catch (err) {
       fail(err instanceof Unauthorized ? 'token' : 'down');
     }

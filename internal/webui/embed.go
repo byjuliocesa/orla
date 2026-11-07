@@ -7,7 +7,7 @@ import (
 	"io/fs"
 )
 
-// dist is web/out, copied here by `make web`: go:embed cannot reach outside this directory.
+// dist is web/out (the Vite build), copied here by `make web`: go:embed cannot reach outside this directory.
 //
 //go:embed all:dist
 var dist embed.FS

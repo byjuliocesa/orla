@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef } from 'react';
 
 export type SeaState = 'idle' | 'busy' | 'error' | 'ok' | 'recede';

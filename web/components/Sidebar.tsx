@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { sessionName } from '@/lib/format';

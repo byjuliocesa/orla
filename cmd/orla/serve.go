@@ -32,7 +32,7 @@ func serve(args []string) error {
 	addr := fs.String("addr", defaultAddr, "address to listen on")
 	dataDir := fs.String("data", defaultDataDir(), "directory for the database and token")
 	claudePath := fs.String("claude", "claude", "the Claude Code executable")
-	uiDev := fs.String("ui-dev", "", "serve the web client from this Next.js dev server (development)")
+	uiDev := fs.String("ui-dev", "", "serve the web client from this Vite dev server (development)")
 	_ = fs.Parse(args)
 
 	var ui http.Handler

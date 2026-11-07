@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { folderName, shortPath } from '@/lib/format';

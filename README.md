@@ -24,7 +24,7 @@ internal/provider/   Model provider APIs for engine B
 internal/mcp/        MCP server the CLIs connect to
 internal/channel/    Chat channels
 internal/webui/      Serves the web client embedded in the binary
-web/                 The web client: Next.js, exported as static files
+web/                 The web client: React + Vite, built as static files
 ```
 
 ## Running
@@ -44,7 +44,7 @@ A proxy in front of Orla must pass the original `Host` header, which the browser
 against.
 
 To work on the web client, run `make web-dev` and `./orla serve -ui-dev http://127.0.0.1:3000`
-in another shell: Orla then serves the client from the Next.js dev server, same origin as the API.
+in another shell: Orla then serves the client from the Vite dev server, same origin as the API.
 
 Terminals live on the server and keep running when you leave them:
 

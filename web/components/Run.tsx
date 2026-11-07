@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type ReactNode } from 'react';
 import { between, changeCounts, clock, cost, duration, outcomeText, toolSummary, tokens } from '@/lib/format';
 import type { Approval, Limits, RunView, Step, ToolStep } from '@/lib/timeline';
