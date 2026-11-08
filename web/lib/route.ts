@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 // The export has one page; where it shows lives in the query string, so links and the back
 // button work without a route per session id, which a static export cannot have.
 
-export type View = 'home' | 'session' | 'approvals' | 'terminals' | 'new';
+export type View = 'home' | 'session' | 'approvals' | 'terminals' | 'new' | 'library';
 
 export interface Route {
   view: View;
@@ -17,7 +17,7 @@ function parse(search: string): Route {
   const terminal = q.get('t') ?? undefined;
   const v = q.get('v');
   const view: View =
-    v === 'approvals' || v === 'terminals' || v === 'new' ? v : session ? 'session' : 'home';
+    v === 'approvals' || v === 'terminals' || v === 'new' || v === 'library' ? v : session ? 'session' : 'home';
   return { view, session, terminal };
 }
 

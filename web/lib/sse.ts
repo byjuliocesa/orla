@@ -11,70 +11,60 @@ export interface StreamHandlers {
 const maxBackoff = 10_000;
 
 /**
- * Reads an Orla SSE stream with fetch, which carries the login cookie like EventSource does but
- * sees every event whatever its name. It reconnects until stopped; `url` is asked again on each
- * attempt, so a session stream resumes after the last seq it delivered.
+ * Reads an Orla event stream over a WebSocket, which carries the login cookie and, unlike an SSE
+ * response, does not hold one of the six connections a browser allows per site: with SSE a few
+ * open tabs used them all and a reloaded tab waited for its own page. It reconnects until
+ * stopped; `url` is asked again on each attempt, so a session stream resumes after the last seq
+ * it delivered.
  */
 export function openStream(url: () => string, h: StreamHandlers): () => void {
-  const stop = new AbortController();
+  let stopped = false;
+  let socket: WebSocket | null = null;
+  let retry: ReturnType<typeof setTimeout> | undefined;
   let backoff = 1000;
 
-  const run = async () => {
-    while (!stop.signal.aborted) {
+  const connect = () => {
+    if (stopped) return;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}${url()}`);
+    socket = ws;
+    let opened = false;
+    ws.onopen = () => {
+      opened = true;
+      backoff = 1000;
+      h.onOpen?.();
+    };
+    ws.onmessage = (m) => {
+      if (typeof m.data !== 'string') return;
       try {
-        const res = await fetch(url(), {
-          credentials: 'same-origin',
-          headers: { Accept: 'text/event-stream' },
-          signal: stop.signal,
-        });
-        if (res.status === 401) {
-          h.onUnauthorized?.();
-          return;
-        }
-        if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
-        backoff = 1000;
-        h.onOpen?.();
-        await read(res.body, h.onEvent);
+        h.onEvent(JSON.parse(m.data) as OrlaEvent);
       } catch {
-        if (stop.signal.aborted) return;
+        // not an event
       }
+    };
+    ws.onclose = () => {
+      if (stopped) return;
       h.onDown?.();
-      await sleep(backoff, stop.signal);
-      backoff = Math.min(backoff * 2, maxBackoff);
-    }
+      // A handshake refused before it opened may be a login that ended; the API says which.
+      const check = opened
+        ? Promise.resolve(false)
+        : fetch('/v1/approvals', { credentials: 'same-origin' }).then(
+            (r) => r.status === 401,
+            () => false,
+          );
+      void check.then((unauthorized) => {
+        if (stopped) return;
+        if (unauthorized) return h.onUnauthorized?.();
+        retry = setTimeout(connect, backoff);
+        backoff = Math.min(backoff * 2, maxBackoff);
+      });
+    };
   };
-  void run();
-  return () => stop.abort();
-}
 
-async function read(body: ReadableStream<Uint8Array>, onEvent: (e: OrlaEvent) => void) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) return;
-    buffer += decoder.decode(value, { stream: true });
-    let end: number;
-    while ((end = buffer.indexOf('\n\n')) >= 0) {
-      const block = buffer.slice(0, end);
-      buffer = buffer.slice(end + 2);
-      const data = block
-        .split('\n')
-        .filter((line) => line.startsWith('data: '))
-        .map((line) => line.slice(6))
-        .join('\n');
-      if (data) onEvent(JSON.parse(data) as OrlaEvent);
-    }
-  }
-}
-
-function sleep(ms: number, signal: AbortSignal) {
-  return new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => {
-      clearTimeout(t);
-      resolve();
-    });
-  });
+  connect();
+  return () => {
+    stopped = true;
+    clearTimeout(retry);
+    socket?.close();
+  };
 }
