@@ -51,8 +51,21 @@ export function folderName(cwd: string): string {
 }
 
 /** What a session is called in lists: its folder, or its repository and worktree branch. */
-export function sessionName(s: { cwd: string; title?: string; worktree?: { repo: string; branch: string } }): string {
+/** The home directory of a user on the server: where a new session starts. */
+export function isHome(path: string): boolean {
+  return /^\/(home\/[^/]+|root|Users\/[^/]+)\/?$/.test(path);
+}
+
+function promptName(text: string, max = 60): string {
+  const line = text.trim().split('\n')[0]!.replace(/\s+/g, ' ');
+  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line || 'New session';
+}
+
+export function sessionName(s: { cwd: string; title?: string; worktree?: { repo: string; branch: string }; last_run?: { prompt: string; status: string } }): string {
   if (s.title) return s.title;
+  // A session started in the home directory waits a few seconds for its name; if none comes
+  // by the end of its first run, its prompt stands in.
+  if (!s.worktree && isHome(s.cwd)) return s.last_run && s.last_run.status !== 'running' ? promptName(s.last_run.prompt) : 'New session';
   if (!s.worktree) return folderName(s.cwd);
   return `${folderName(s.worktree.repo)} · ${s.worktree.branch.replace(/^orla\//, '')}`;
 }
@@ -133,7 +146,7 @@ export function outcomeText(o: { allowed: boolean; by: string; message?: string;
 
 /** Claude Code's permission modes, as a run can request them. */
 export const permissionModes: { value: string; label: string }[] = [
-  { value: '', label: 'Claude Code settings' },
+  { value: '', label: 'Agent settings' },
   { value: 'manual', label: 'Ask before each tool' },
   { value: 'acceptEdits', label: 'Accept edits' },
   { value: 'plan', label: 'Plan only' },

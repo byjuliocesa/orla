@@ -133,6 +133,30 @@ type Repo struct {
 	Branch string `json:"branch,omitempty"`
 	// Head is the commit checked out, empty before the first commit.
 	Head string `json:"head,omitempty"`
+	// Web is the page of origin on its forge (GitHub, GitLab...), when origin is one.
+	Web string `json:"web,omitempty"`
+}
+
+// webURL turns a remote's URL into its page in a browser: git@host:o/r.git and
+// https://host/o/r.git both become https://host/o/r. Anything else gives "".
+func webURL(remote string) string {
+	r := strings.TrimSuffix(strings.TrimSpace(remote), ".git")
+	switch {
+	case strings.HasPrefix(r, "git@"):
+		host, path, ok := strings.Cut(strings.TrimPrefix(r, "git@"), ":")
+		if !ok {
+			return ""
+		}
+		return "https://" + host + "/" + path
+	case strings.HasPrefix(r, "ssh://git@"):
+		return "https://" + strings.TrimPrefix(r, "ssh://git@")
+	case strings.HasPrefix(r, "https://"):
+		if at := strings.Index(r, "@"); at > 0 && at < strings.Index(r[8:]+"/", "/")+8 {
+			r = "https://" + r[at+1:] // drop credentials
+		}
+		return r
+	}
+	return ""
 }
 
 // Open finds the work tree that holds dir.
@@ -158,6 +182,9 @@ func Open(ctx context.Context, dir string) (Repo, error) {
 	}
 	if h, err := run(ctx, dir, "rev-parse", "-q", "--verify", "HEAD^{commit}"); err == nil {
 		r.Head = strings.TrimSpace(h)
+	}
+	if u, err := run(ctx, dir, "config", "--get", "remote.origin.url"); err == nil {
+		r.Web = webURL(u)
 	}
 	return r, nil
 }

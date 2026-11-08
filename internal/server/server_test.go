@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/byjuliocesa/orla/internal/automation"
 	"io"
 	"log/slog"
 	"net/http"
@@ -54,11 +55,14 @@ func newServerWith(t *testing.T, claude cli.Claude) (*httptest.Server, *session.
 	bus := events.NewBus(st)
 	sessions := session.NewService(log, st, bus, map[string]session.Runner{"claude": claude})
 	terminals := terminal.NewManager()
+	automations := &automation.Manager{Bus: bus, Token: testToken}
 	srv := httptest.NewServer(New(Deps{
 		Log: log, Token: testToken, Terminals: terminals, Store: st, Bus: bus, Sessions: sessions,
-		Worktrees: filepath.Join(t.TempDir(), "worktrees"),
+		Worktrees: filepath.Join(t.TempDir(), "worktrees"), Uploads: filepath.Join(t.TempDir(), "uploads"),
+		Automations: automations,
 	}))
 	t.Cleanup(func() {
+		automations.Close()
 		srv.CloseClientConnections()
 		srv.Close()
 		terminals.CloseAll()

@@ -5,10 +5,10 @@ import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
-// The newest git tag, or the commit when there is none yet; "dev" outside a git checkout.
+// The newest git tag reachable from HEAD, like v0.1.2; "dev" without one.
 function version(): string {
   try {
-    return execSync('git describe --tags --always', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync('git describe --tags --abbrev=0', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   } catch {
     return 'dev';
   }
@@ -34,7 +34,8 @@ export default defineConfig({
   plugins: [react(), pages()],
   resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
   define: { 'import.meta.env.VITE_ORLA_VERSION': JSON.stringify(version()) },
-  build: { outDir: 'out', emptyOutDir: true },
+  // Every asset a file of its own: the server's CSP allows fonts and images from 'self', not data: URIs.
+  build: { outDir: 'out', emptyOutDir: true, assetsInlineLimit: 0 },
   server: { host: '127.0.0.1', port: 3000, strictPort: true },
   test: { include: ['lib/**/*.test.ts'] },
 });

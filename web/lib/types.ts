@@ -46,6 +46,12 @@ export interface Session {
   title?: string;
   pinned?: boolean;
   archived?: string;
+  fork_parent?: string;
+  fork_run?: string;
+  /** Skills this session leaves out of its conversation. */
+  skills_off?: string[];
+  /** Flow skills this session follows; every other flow is off. */
+  flows?: string[];
 }
 
 export interface Worktree {
@@ -68,6 +74,8 @@ export interface Repo {
   main: string;
   branch?: string;
   head?: string;
+  /** origin's page on its forge, when it has one. */
+  web?: string;
 }
 
 export type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
@@ -131,4 +139,67 @@ export interface TerminalInfo {
   cwd: string;
   started: string;
   clients: number;
+}
+
+/** A flow: a skill that says, step by step, how a kind of task is done. */
+export interface FlowStep {
+  id: string;
+  title: string;
+  uses: string[];
+  signals: string[];
+  branches: { to: string; when?: string }[];
+  /** Where the step goes when done, when not the step below it: a step id, or "end". */
+  next?: string;
+  file?: string;
+  file_body?: string;
+  body: string;
+}
+export interface Flow {
+  name: string;
+  title: string;
+  description: string;
+  scope: string;
+  dir: string;
+  path: string;
+  intro?: string;
+  steps: FlowStep[];
+  files: string[];
+  modified: string;
+}
+
+/** An automation: a script Orla runs and watches, so routine work costs no model tokens. */
+export interface AutomationStatus {
+  name: string;
+  session?: string;
+  state: 'running' | 'waiting' | 'stopped' | 'failed';
+  since: string;
+  last_run?: string;
+  last_end?: string;
+  exit?: number;
+  runs: number;
+  error?: string;
+}
+export interface Automation {
+  name: string;
+  title: string;
+  description: string;
+  run: string;
+  scope: 'session' | 'global';
+  trigger: { kind: string; every?: number; on?: string; text: string };
+  restart: string;
+  dir: string;
+  path: string;
+  body?: string;
+  files: string[];
+  problem?: string;
+  modified: string;
+  instances: AutomationStatus[];
+  /** Where the owner turned it on: "" for global, else session ids. */
+  on: string[];
+}
+export interface AutomationLine {
+  n: number;
+  time: string;
+  stream: 'out' | 'err' | 'orla';
+  text: string;
 }

@@ -83,6 +83,8 @@ export interface RunView {
   steps: Step[];
   /** Summed from each model response while the run goes on. */
   live: Tokens;
+  /** Tokens the latest model response saw and wrote: how full the context is. */
+  context?: number;
   /** The CLI's own total, once the run reports it. */
   usage?: Tokens & { turns: number; durationMs?: number; costUsd?: number };
 }
@@ -237,6 +239,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
           r.live.output += num(d.output_tokens);
           r.live.cacheRead += num(d.cache_read_tokens);
           r.live.cacheWrite += num(d.cache_write_tokens);
+          r.context = num(d.input_tokens) + num(d.cache_read_tokens) + num(d.cache_write_tokens) + num(d.output_tokens);
         } else if (scope === 'run') {
           const models = Array.isArray(d.models) ? d.models.filter((m) => typeof m === 'string' && m) : [];
           if (!r.model && models.length > 0) r.model = models.join(', ');

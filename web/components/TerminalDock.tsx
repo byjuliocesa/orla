@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ask } from './ConfirmDialog';
+import { Tooltip } from './Tooltip';
 import { api } from '@/lib/api';
 import { folderName, shortPath } from '@/lib/format';
 import type { TerminalInfo } from '@/lib/types';
@@ -54,7 +56,7 @@ export function TerminalDock({
   };
 
   const close = async (t: TerminalInfo) => {
-    if (!window.confirm(`Close ${label(t)}? Every process it started ends with it.`)) return;
+    if (!(await ask({ title: `Close ${label(t)}?`, body: 'Every process it started ends with it.', confirm: 'Close' }))) return;
     try {
       await api.closeTerminal(t.id);
     } finally {
@@ -71,24 +73,25 @@ export function TerminalDock({
         </button>
         <span className="title">Terminals</span>
       </div>
-      <div className="dock-tabs" role="tablist" aria-label="Open terminals">
+      <div className="dock-tabs" role="tablist" aria-label="Open terminals" data-empty={terminals.length === 0 || undefined}>
         {terminals.map((t) => (
-          <div key={t.id} className="tab" role="tab" aria-selected={t.id === current?.id} title={`${t.argv.join(' ')} in ${shortPath(t.cwd)} · ${t.id}`}>
-            <button className="tab-label" onClick={() => select(t.id)}>
-              {label(t)}
-            </button>
+          <div key={t.id} className="tab" role="tab" aria-selected={t.id === current?.id}>
+            <Tooltip label={`${t.argv.join(' ') || 'shell'} in ${shortPath(t.cwd)}`} side="bottom">
+              <button className="tab-label" onClick={() => select(t.id)}>
+                {label(t)}
+              </button>
+            </Tooltip>
             <button className="tab-close" onClick={() => void close(t)} aria-label={`Close ${label(t)}`}>
               <Cross />
             </button>
           </div>
         ))}
         <div className="dock-add">
-          <button className="btn btn-sm" onClick={() => void open()} title={cwd ? `A shell in ${shortPath(cwd)}` : 'A shell'}>
-            <Plus /> Shell
-          </button>
-          <button className="btn btn-sm" onClick={() => void open(['claude'])} title={cwd ? `Claude Code in ${shortPath(cwd)}` : 'Claude Code'}>
-            <Plus /> Claude
-          </button>
+          <Tooltip label={cwd ? `New shell in ${shortPath(cwd)}` : 'New shell'} side="bottom">
+            <button className="icon-btn dock-new" aria-label="New shell" onClick={() => void open()}>
+              <Plus />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className="dock-body">
@@ -96,13 +99,15 @@ export function TerminalDock({
           <TerminalView key={current.id} id={current.id} theme={theme} fontFamily={font} />
         ) : (
           <div className="dock-empty">
-            <h2>No terminals open</h2>
-            <p>
-              A terminal runs on the server and keeps going when you leave it.
-              {cwd ? ` New ones start in ${shortPath(cwd)}.` : ''}
-            </p>
-            <button className="btn btn-primary" onClick={() => void open(['claude'])}>
-              <TerminalIcon /> Open Claude Code
+            <div className="dock-empty-term" aria-hidden="true">
+              <span className="dock-empty-path">{cwd ? shortPath(cwd) : '~'}</span>
+              <span className="dock-empty-prompt">❯</span>
+              <span className="dock-empty-caret" />
+            </div>
+            <h2>No terminals yet</h2>
+            <p>They run on the server and keep going after you close Orla.</p>
+            <button className="btn btn-primary" onClick={() => void open()}>
+              <TerminalIcon /> Open a shell
             </button>
           </div>
         )}

@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Arrival } from '@/components/Arrival';
-import { HomePage, ApprovalsPage, NewSessionPage } from '@/components/Pages';
+import { HomePage, ApprovalsPage } from '@/components/Pages';
+import { LibraryView } from '@/components/LibraryView';
+import { NewChat } from '@/components/NewChat';
 import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
 import { TerminalDock } from '@/components/TerminalDock';
+import { RightColumn } from '@/components/RightColumn';
+import { Loader } from '@/components/Loader';
+import { Resizer, useWidth } from '@/components/Resizer';
+import { Toaster } from '@/components/Toast';
+import { AskHost } from '@/components/ConfirmDialog';
 import { api } from '@/lib/api';
 import { sessionName, toolSummary } from '@/lib/format';
 import { useMedia, useNow, useOverview } from '@/lib/hooks';
@@ -28,6 +35,10 @@ function store(key: string, value: string) {
 
 export default function Panel() {
   const [route, go] = useRoute();
+  // Both side columns take the width the owner drags them to.
+  const [sideW, setSideW, resetSide] = useWidth('orla.width.side', 264, 200, 440);
+  const [dockW, setDockW, resetDock] = useWidth('orla.width.dock', 480, 320, 820);
+  const [resizing, setResizing] = useState(false);
   const overview = useOverview();
   const now = useNow(15_000);
   const wide = useMedia('(min-width: 1280px)');
@@ -122,8 +133,6 @@ export default function Panel() {
   const dockBeside = wide && dockPref && route.view !== 'terminals';
   // New terminals start where the session works, or in its repository once its worktree is gone.
   const cwd = (session?.worktree?.removed ? session.worktree.repo : session?.cwd) ?? stored('orla.cwd') ?? '';
-  // A new session starts from the repository, not from another session's worktree.
-  const suggestedCwd = session ? (session.worktree?.repo ?? session.cwd) : (stored('orla.cwd') ?? '');
 
   let main: React.ReactNode;
   switch (route.view) {
@@ -139,19 +148,20 @@ export default function Panel() {
         />
       );
       break;
+    case 'library':
+      main = <LibraryView sessions={sessions} onBack={() => (route.session ? go({ view: 'session', session: route.session }) : home())} />;
+      break;
     case 'new':
       main = (
-        <NewSessionPage
-          suggestedCwd={suggestedCwd}
+        <NewChat
           started={(id) => {
             overview.refresh();
             go({ view: 'session', session: id });
           }}
-          openedTerminal={(id) => {
-            overview.refresh();
-            go({ view: 'terminals', terminal: id });
-          }}
           onBack={home}
+          dockOn={dockBeside}
+          toggleDock={toggleDock}
+          canDock={wide}
         />
       );
       break;
@@ -177,6 +187,10 @@ export default function Panel() {
           openTerminal={openTerminal}
           toggleDock={toggleDock}
           dockOn={dockBeside}
+          openSession={(id) => {
+            overview.refresh();
+            go({ view: 'session', session: id });
+          }}
         />
       ) : loaded ? (
         <div className="page">
@@ -189,16 +203,19 @@ export default function Panel() {
           </div>
         </div>
       ) : (
-        <p className="loading">Loading…</p>
+        <Loader label="Loading" />
       );
       break;
     default:
       main = loaded ? (
         <HomePage sessions={sessions} pending={approvals.length} newSession={() => go({ view: 'new' })} openApprovals={() => go({ view: 'approvals' })} />
       ) : (
-        <p className="loading">Loading…</p>
+        <Loader label="Loading" />
       );
   }
+
+  // The Library is a page of its own: no terminals beside it.
+  const showDock = dockBeside && route.view !== 'library';
 
   // Remember the folder of the session in view, for the next new one.
   const remembered = session?.worktree?.repo ?? session?.cwd;
@@ -207,7 +224,14 @@ export default function Panel() {
   }, [remembered]);
 
   return (
-    <div className="app" data-view={route.view} data-dock={dockBeside ? 'on' : 'off'} data-side={rail ? 'rail' : 'open'}>
+    <div
+      className="app"
+      data-view={route.view}
+      data-dock={showDock ? 'on' : 'off'}
+      data-side={rail ? 'rail' : 'open'}
+      data-resizing={resizing || undefined}
+      style={{ '--side': `${sideW}px`, '--dock': `${dockW}px` } as React.CSSProperties}
+    >
       <Sidebar
         route={route}
         go={go}
@@ -219,7 +243,17 @@ export default function Panel() {
         actions={actions}
       />
       <main className="main">{main}</main>
-      {dockBeside && (
+      {dockBeside && route.view === 'session' && session ? (
+        <RightColumn
+          session={session}
+          terminals={terminals}
+          terminal={route.terminal}
+          cwd={cwd || undefined}
+          select={(id) => go({ ...route, terminal: id }, true)}
+          changed={overview.refresh}
+          onBack={home}
+        />
+      ) : showDock && (
         <TerminalDock
           terminals={terminals}
           active={route.terminal ?? session?.terminal}
@@ -229,7 +263,16 @@ export default function Panel() {
           onBack={home}
         />
       )}
+      {!phone && !rail && (
+        <Resizer edge="left" width={sideW} setWidth={setSideW} reset={resetSide} label="Resize the sessions sidebar" style={{ left: sideW }} onDrag={setResizing} />
+      )}
+      {!phone && showDock && (
+        <Resizer edge="right" width={dockW} setWidth={setDockW} reset={resetDock} label="Resize the right column" style={{ right: dockW }} onDrag={setResizing} />
+      )}
+      <Toaster />
+      <AskHost />
       <Arrival />
     </div>
   );
 }
+

@@ -52,6 +52,8 @@ export function useOverview(): Overview {
   }, [load]);
 
   useEffect(() => {
+    // The lists come first, without waiting for the stream to open.
+    void load();
     const stop = openStream(() => '/v1/events', {
       onOpen: () => {
         setLive(true);
@@ -74,42 +76,66 @@ export function useOverview(): Overview {
 }
 
 /** Every event of one session, replayed then live, resuming after the last one seen. */
-export function useSessionTimeline(session: string | undefined): { timeline: Timeline; events: OrlaEvent[]; live: boolean } {
+export function useSessionTimeline(session: string | undefined): { timeline: Timeline; events: OrlaEvent[]; live: boolean; loaded: boolean } {
   const [events, setEvents] = useState<OrlaEvent[]>([]);
   const [live, setLive] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setEvents([]);
+    setLoaded(false);
     if (!session) return;
     let last = 0;
     let batch: OrlaEvent[] = [];
-    let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stop = () => {};
+    let gone = false;
     const flush = () => {
-      frame = 0;
+      timer = undefined;
       const add = batch;
       batch = [];
       setEvents((prev) => prev.concat(add));
     };
-    const stop = openStream(() => `/v1/sessions/${session}/events?after=${last}`, {
-      onOpen: () => setLive(true),
-      onDown: () => setLive(false),
-      onUnauthorized: toLogin,
-      onEvent: (e) => {
-        if (e.seq <= last) return;
-        last = e.seq;
-        batch.push(e);
-        // A replay arrives as hundreds of events at once; render them once per frame.
-        if (!frame) frame = requestAnimationFrame(flush);
-      },
-    });
+    const follow = () => {
+      if (gone) return;
+      stop = openStream(() => `/v1/sessions/${session}/events?after=${last}`, {
+        onOpen: () => setLive(true),
+        onDown: () => setLive(false),
+        onUnauthorized: toLogin,
+        onEvent: (e) => {
+          if (e.seq <= last) return;
+          last = e.seq;
+          batch.push(e);
+          // Events can come many at once; draw them together. A timer, not a frame: frames
+          // stop in a hidden tab, and the conversation must be there when it shows again.
+          if (!timer) timer = setTimeout(flush, 16);
+        },
+      });
+    };
+    // The whole conversation in one request, then live from where it ends.
+    api
+      .history(session)
+      .then((evs) => {
+        if (gone) return;
+        last = evs.reduce((m, e) => Math.max(m, e.seq), 0);
+        setEvents(evs);
+        setLoaded(true);
+        follow();
+      })
+      .catch((err) => {
+        if (err instanceof Unauthorized) return toLogin();
+        setLoaded(true);
+        follow();
+      });
     return () => {
+      gone = true;
       stop();
-      if (frame) cancelAnimationFrame(frame);
+      clearTimeout(timer);
     };
   }, [session]);
 
   const timeline = useMemo(() => buildTimeline(events), [events]);
-  return { timeline, events, live };
+  return { timeline, events, live, loaded };
 }
 
 /** The current time, ticking, for clocks of things in progress. */

@@ -13,10 +13,19 @@ export function Sea({
   state,
   above,
   covered = false,
+  rest: restAt = 0.62,
+  swell = 1,
+  wavelength = 1,
 }: {
   state: SeaState;
   above?: React.RefObject<HTMLElement | null>;
   covered?: boolean;
+  /** Where the water rests, as a share of the height from the top. */
+  rest?: number;
+  /** How high the waves run, as a share of the full sea's. */
+  swell?: number;
+  /** How long the waves are, as a share of the full sea's. */
+  wavelength?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
@@ -43,12 +52,16 @@ export function Sea({
     const aim = () => {
       const top = cv.getBoundingClientRect().top;
       const formEnd = (above?.current?.getBoundingClientRect().bottom ?? 0) - top;
-      const rest = Math.max(formEnd + 64, h * 0.62);
+      const rest = above ? Math.max(formEnd + 64, h * restAt) : h * restAt;
       const s = stateRef.current;
       target =
         s === 'busy' ? formEnd + 26 : s === 'ok' ? COVERED : s === 'recede' ? h + 80 : s === 'error' ? rest + 28 : rest;
       if (Number.isNaN(level) || reduce) level = target;
       if (reduce) draw();
+      else if (!raf && !document.hidden) {
+        last = performance.now();
+        raf = requestAnimationFrame(loop);
+      }
     };
     aimRef.current = aim;
 
@@ -61,7 +74,7 @@ export function Sea({
       const cell = w < 560 ? 12 : 14;
       const row = cell * 1.25;
       const step = cell * 0.62;
-      const crestAt = (x: number) => level + Math.sin(x * 0.011 + t * 0.9) * 10 + Math.sin(x * 0.027 - t * 1.3) * 5;
+      const crestAt = (x: number) => level + (Math.sin((x * 0.011) / wavelength + t * 0.9) * 10 + Math.sin((x * 0.027) / wavelength - t * 1.3) * 5) * swell;
 
       ctx.fillStyle = css.getPropertyValue('--bg').trim() || '#091116';
       ctx.beginPath();
@@ -108,12 +121,19 @@ export function Sea({
       t += dt;
       level += (target - level) * Math.min(1, dt * 2.4);
       draw();
+      // Gone below the bottom and settled: nothing shows, so stop drawing until aimed again.
+      if (stateRef.current === 'recede' && Math.abs(target - level) < 1) {
+        raf = 0;
+        return;
+      }
       raf = requestAnimationFrame(loop);
     };
 
+    let dead = false;
     const run = () => {
       cancelAnimationFrame(raf);
-      if (document.hidden) return;
+      raf = 0;
+      if (dead || document.hidden) return;
       size();
       if (reduce) return;
       last = performance.now();
@@ -123,15 +143,16 @@ export function Sea({
     const ro = new ResizeObserver(size);
     ro.observe(cv);
     document.addEventListener('visibilitychange', run);
-    document.fonts?.ready.then(run);
+    document.fonts?.ready.then(() => !dead && run());
     run();
     return () => {
+      dead = true;
       cancelAnimationFrame(raf);
       ro.disconnect();
       document.removeEventListener('visibilitychange', run);
       aimRef.current = () => {};
     };
-  }, [above, covered]);
+  }, [above, covered, restAt, swell, wavelength]);
 
   return <canvas ref={canvas} className="sea" aria-hidden="true" />;
 }

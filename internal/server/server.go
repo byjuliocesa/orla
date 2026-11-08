@@ -3,11 +3,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/byjuliocesa/orla/internal/automation"
 	"log/slog"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/engine/cli"
 	"github.com/byjuliocesa/orla/internal/events"
 	"github.com/byjuliocesa/orla/internal/session"
 	"github.com/byjuliocesa/orla/internal/store"
@@ -26,26 +31,59 @@ type Deps struct {
 	HookURL string
 	// Worktrees is the folder that holds the worktrees Orla makes.
 	Worktrees string
+	// Uploads is the folder that holds the files the owner attaches to prompts.
+	Uploads string
+	// Contexter reports what fills a conversation's context window; nil leaves it unknown.
+	Contexter func(ctx context.Context, native, cwd, settings string) (cli.ContextUsage, error)
+	// Library lists the skills Claude Code would load in a folder, with their cost.
+	Library func(ctx context.Context, cwd string) ([]cli.ContextPart, error)
+	// Automations runs the owner's automations; nil leaves them off.
+	Automations *automation.Manager
+	// Titler names a session from its first prompt; nil leaves sessions unnamed.
+	Titler func(ctx context.Context, prompt string) (string, error)
 	// UI serves the web client at every path outside the API. Nil serves a note saying the
 	// binary was built without it.
 	UI http.Handler
 }
 
 type Server struct {
-	log       *slog.Logger
-	terminals *terminal.Manager
-	store     *store.Store
-	bus       *events.Bus
-	sessions  *session.Service
-	hookURL   string
-	worktrees string
+	automations *automation.Manager
+	log         *slog.Logger
+	terminals   *terminal.Manager
+	store       *store.Store
+	bus         *events.Bus
+	sessions    *session.Service
+	hookURL     string
+	worktrees   string
+	uploads     string
+	titler      func(ctx context.Context, prompt string) (string, error)
+	contexter   func(ctx context.Context, native, cwd, settings string) (cli.ContextUsage, error)
+	library     func(ctx context.Context, cwd string) ([]cli.ContextPart, error)
+	// libraries caches the skill library per folder for a few minutes.
+	libMu     sync.Mutex
+	libraries map[string]cachedLibrary
+	// contexts caches /context per session, good until the session's next event.
+	ctxMu    sync.Mutex
+	contexts map[string]cachedContext
+}
+
+type cachedLibrary struct {
+	at     time.Time
+	skills []cli.ContextPart
+	// refreshing is set while a fresh copy is on its way, so only one is asked for at a time.
+	refreshing bool
+}
+
+type cachedContext struct {
+	seq   int64
+	usage cli.ContextUsage
 }
 
 // New returns the root handler with every route registered.
 func New(d Deps) http.Handler {
 	s := &Server{
 		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
-		hookURL: d.HookURL, worktrees: d.Worktrees,
+		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations,
 	}
 
 	api := http.NewServeMux()
@@ -56,18 +94,40 @@ func New(d Deps) http.Handler {
 
 	api.HandleFunc("GET /v1/sessions", s.listSessions)
 	api.HandleFunc("POST /v1/sessions", s.createSession)
+	api.HandleFunc("POST /v1/sessions/import", s.importSession)
 	api.HandleFunc("GET /v1/sessions/{id}", s.getSession)
 	api.HandleFunc("PATCH /v1/sessions/{id}", s.updateSession)
 	api.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
+	api.HandleFunc("POST /v1/sessions/{id}/fork", s.forkSession)
+	api.HandleFunc("GET /v1/limits", s.limits)
+	api.HandleFunc("GET /v1/skills", s.skills)
+	api.HandleFunc("GET /v1/automations", s.listAutomations)
+	api.HandleFunc("POST /v1/automations/{name}/{action}", s.automationAction)
+	api.HandleFunc("GET /v1/automations/{name}/logs", s.automationLogs)
+	api.HandleFunc("DELETE /v1/automations/{name}", s.deleteAutomation)
+	api.HandleFunc("GET /v1/flows", s.flows)
+	api.HandleFunc("GET /v1/flows/archived", s.archivedFlows)
+	api.HandleFunc("POST /v1/flows/{name}/{action}", s.flowAction)
+	api.HandleFunc("DELETE /v1/flows/{name}", s.flowAction)
+	api.HandleFunc("POST /v1/flows/{name}/steps/{step}/{action}", s.flowAction)
+	api.HandleFunc("DELETE /v1/flows/{name}/steps/{step}", s.flowAction)
+	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
+	api.HandleFunc("GET /v1/prefs/{key}", s.getPref)
+	api.HandleFunc("PUT /v1/prefs/{key}", s.putPref)
+	api.HandleFunc("GET /v1/files", s.files)
 	api.HandleFunc("POST /v1/sessions/{id}/runs", s.startRun)
 	api.HandleFunc("POST /v1/sessions/{id}/cancel", s.cancelRun)
 	api.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)
+	api.HandleFunc("GET /v1/sessions/{id}/history", s.history)
+	api.HandleFunc("GET /v1/sessions/{id}/context", s.sessionContext)
 	api.HandleFunc("POST /v1/sessions/{id}/approvals/{approval}", s.resolveApproval)
 	api.HandleFunc("GET /v1/events", s.streamAllEvents)
 	api.HandleFunc("GET /v1/approvals", s.listApprovals)
 
 	api.HandleFunc("GET /v1/git", s.gitInfo)
 	api.HandleFunc("POST /v1/worktrees", s.createWorktree)
+	api.HandleFunc("POST /v1/uploads", s.upload)
+	api.HandleFunc("GET /v1/uploads/{id}", s.getUpload)
 	api.HandleFunc("GET /v1/sessions/{id}/changes", s.sessionChanges)
 	api.HandleFunc("GET /v1/sessions/{id}/diff", s.sessionDiff)
 	api.HandleFunc("POST /v1/sessions/{id}/discard", s.discardChange)

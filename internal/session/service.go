@@ -122,6 +122,23 @@ func (s *Service) Create(ctx context.Context, agent, cwd string) (store.Session,
 	return sess, s.store.CreateSession(ctx, sess)
 }
 
+// Fork makes a session that goes on from where from's conversation is now, on a path of its
+// own: its first run resumes that conversation under a new id, and from is left as it was.
+// at is the CLI's id of the last message kept; empty keeps the whole conversation.
+func (s *Service) Fork(ctx context.Context, from store.Session, title, at, run string) (store.Session, error) {
+	if from.NativeSession == "" {
+		return store.Session{}, ErrNothingToFork
+	}
+	sess := store.Session{
+		ID: id.New("ses"), Agent: from.Agent, Cwd: from.Cwd, Created: time.Now().UTC(),
+		Title: title, ForkOf: from.NativeSession, ForkAt: at, ForkParent: from.ID, ForkRun: run,
+	}
+	return sess, s.store.CreateSession(ctx, sess)
+}
+
+// ErrNothingToFork: the session has no CLI conversation yet.
+var ErrNothingToFork = errors.New("the session has no conversation to fork yet")
+
 // Busy reports the run in progress in a session, if any.
 func (s *Service) Busy(session string) (string, bool) {
 	s.mu.Lock()
@@ -137,7 +154,11 @@ type RunOptions struct {
 	Prompt         string
 	PermissionMode string
 	Model          string
-	ParentRun      string
+	// Effort is the CLI's effort level (low, medium, high, xhigh, max); empty keeps its default.
+	Effort string
+	// AddDirs are folders outside the session's own that the agent may read, such as uploads.
+	AddDirs   []string
+	ParentRun string
 }
 
 // Start begins a run in the background and returns its id. Its progress is published as
@@ -192,9 +213,17 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 
 	s.wg.Go(func() {
 		defer release()
+		resume, fork, resumeAt := sess.NativeSession, false, ""
+		if resume == "" && sess.ForkOf != "" {
+			// Resumed under a new id, which the run reports, up to where the fork was made.
+			resume, fork, resumeAt = sess.ForkOf, true, sess.ForkAt
+		}
 		spec := cli.Spec{
-			Run: run.ID, Cwd: sess.Cwd, Prompt: opts.Prompt, Resume: sess.NativeSession,
-			PermissionMode: opts.PermissionMode, Model: opts.Model,
+			Run: run.ID, Cwd: sess.Cwd, Prompt: opts.Prompt, Resume: resume, Fork: fork,
+			ResumeAt:       resumeAt,
+			Settings:       cli.SkillSettings(Off(sess)),
+			System:         System(opts.Prompt),
+			PermissionMode: opts.PermissionMode, Model: opts.Model, Effort: opts.Effort, AddDirs: opts.AddDirs,
 		}
 		if s.approvalsURL != "" {
 			// The secret ties the MCP endpoint to this run: a run can only ask for itself.

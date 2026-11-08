@@ -1,4 +1,4 @@
-import type { ChangedFile, Changes, MergeState, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
+import type { Automation, AutomationLine, ChangedFile, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -14,6 +14,65 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+/** Claude Code's /context: what fills a conversation's window. */
+export interface ContextPart {
+  name: string;
+  tokens: number;
+  percent?: number;
+  detail?: string;
+}
+export interface ContextUsage {
+  model: string;
+  used: number;
+  total: number;
+  categories: ContextPart[];
+  mcp_tools?: ContextPart[];
+  skills?: ContextPart[];
+  memory?: ContextPart[];
+}
+
+/** The account's plan windows, as the last run reported them. */
+export interface PlanLimits {
+  limits: Record<string, { used: number; resets_at?: number }> | null;
+  at?: string;
+}
+
+/** A file the owner attached, as the server keeps it. */
+export interface Upload {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  path: string;
+}
+
+/** Sends one file, reporting progress from 0 to 1. Aborting stops it. */
+export function uploadFile(file: File, onProgress: (share: number) => void): { done: Promise<Upload>; abort: () => void } {
+  const xhr = new XMLHttpRequest();
+  const done = new Promise<Upload>((resolve, reject) => {
+    xhr.open('POST', '/v1/uploads');
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      if (xhr.status === 401) return reject(new Unauthorized());
+      if (xhr.status !== 201) {
+        let message = xhr.responseText.trim() || xhr.statusText;
+        try {
+          message = (JSON.parse(xhr.responseText) as { error?: string }).error ?? message;
+        } catch {}
+        return reject(new ApiError(xhr.status, message));
+      }
+      resolve(JSON.parse(xhr.responseText) as Upload);
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'The upload did not reach Orla.'));
+    xhr.onabort = () => reject(new ApiError(0, 'aborted'));
+    const form = new FormData();
+    form.append('file', file);
+    xhr.send(form);
+  });
+  return { done, abort: () => xhr.abort() };
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -42,18 +101,45 @@ export interface RunOptions {
   prompt: string;
   permission_mode?: string;
   model?: string;
+  effort?: string;
+  ultracode?: boolean;
+  /** Upload ids. */
+  attachments?: string[];
 }
 
 export const api = {
   login: (token: string) => call<void>('POST', '/auth/login', { token }),
   logout: () => call<void>('POST', '/auth/logout'),
 
+  limits: () => call<PlanLimits>('GET', '/v1/limits'),
+  context: (session: string) => call<{ context: ContextUsage | null }>('GET', `/v1/sessions/${session}/context`).then((r) => r.context),
+  files: (cwd: string, q: string) => call<{ files: { path: string; dir?: boolean }[] }>('GET', `/v1/files?cwd=${encodeURIComponent(cwd)}&q=${encodeURIComponent(q)}`).then((r) => r.files),
+  history: (session: string) => call<{ events: OrlaEvent[] }>('GET', `/v1/sessions/${session}/history`).then((r) => r.events ?? []),
+  sessionDetail: (session: string) => call<{ session: Session; remote?: string }>('GET', `/v1/sessions/${session}`),
+  flows: (cwd: string) => call<{ flows: Flow[] }>('GET', `/v1/flows?cwd=${encodeURIComponent(cwd)}`),
+  flowAction: (action: 'archive' | 'restore' | 'delete' | 'duplicate', flow: string, step: string | undefined, cwd: string) =>
+    call<{ ok: boolean; name?: string }>(
+      action === 'delete' ? 'DELETE' : 'POST',
+      `/v1/flows/${encodeURIComponent(flow)}${step ? `/steps/${encodeURIComponent(step)}` : ''}${action === 'delete' ? '' : `/${action}`}?cwd=${encodeURIComponent(cwd)}`,
+    ),
+  automations: () => call<{ automations: Automation[] }>('GET', '/v1/automations'),
+  automationAction: (name: string, action: 'start' | 'stop', session?: string) =>
+    call<{ ok: boolean }>('POST', `/v1/automations/${encodeURIComponent(name)}/${action}${session ? `?session=${encodeURIComponent(session)}` : ''}`),
+  automationLogs: (name: string, session: string | undefined, after: number) =>
+    call<{ lines: AutomationLine[] }>('GET', `/v1/automations/${encodeURIComponent(name)}/logs?after=${after}${session ? `&session=${encodeURIComponent(session)}` : ''}`),
+  deleteAutomation: (name: string) => call<{ ok: boolean }>('DELETE', `/v1/automations/${encodeURIComponent(name)}`),
+  archivedFlows: () => call<{ flows: Flow[]; steps: { flow: string; step: FlowStep; path: string }[] }>('GET', '/v1/flows/archived'),
+  skillDoc: (name: string, cwd: string) => call<{ name: string; path: string; body: string }>('GET', `/v1/skill-doc?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(cwd)}`),
+  pref: <T,>(key: string) => call<{ value: T | null }>('GET', `/v1/prefs/${key}`),
+  setPref: (key: string, value: unknown) => call<{ value: unknown }>('PUT', `/v1/prefs/${key}`, value),
+  skills: (cwd: string) => call<{ skills: { name: string; description?: string; scope: string; tokens: number; flow?: boolean; orla?: boolean }[] }>('GET', `/v1/skills?cwd=${encodeURIComponent(cwd)}`),
+  forkSession: (session: string, run?: string) => call<Session>('POST', `/v1/sessions/${session}/fork`, run ? { run } : undefined),
   sessions: () => call<{ sessions: Session[] }>('GET', '/v1/sessions').then((r) => r.sessions),
   createSession: (cwd: string, agent = 'claude') =>
     call<Session>('POST', '/v1/sessions', { cwd, agent }),
   startRun: (session: string, opts: RunOptions) =>
     call<{ id: string }>('POST', `/v1/sessions/${session}/runs`, opts),
-  updateSession: (session: string, change: { title?: string; pinned?: boolean; archived?: boolean }) =>
+  updateSession: (session: string, change: { title?: string; pinned?: boolean; archived?: boolean ;  skills_off?: string[]; flows?: string[] }) =>
     call<Session>('PATCH', `/v1/sessions/${session}`, change),
   deleteSession: (session: string) => call<void>('DELETE', `/v1/sessions/${session}`),
   cancel: (session: string) => call<void>('POST', `/v1/sessions/${session}/cancel`),
