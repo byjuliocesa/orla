@@ -1,10 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ask } from './ConfirmDialog';
+import { Tooltip } from './Tooltip';
+import { Loader } from './Loader';
 import { api, ApiError } from '@/lib/api';
 import { parsePatch, type ParsedDiff } from '@/lib/diff';
 import { shortPath } from '@/lib/format';
 import type { Review } from '@/lib/hooks';
 import type { ChangedFile, MergeState, Session } from '@/lib/types';
-import { Branch, Check, ChevronRight, Commit, Cross, Merge, Spinner, Trash, Undo } from './Icons';
+import { AtSign, Branch, Check, ChevronRight, Cross, Merge, Plus, Spinner, Trash, Undo } from './Icons';
+import { insertIntoPrompt } from './PromptBox';
+import { highlight, languageOf } from '@/lib/highlight';
 
 const letters: Record<ChangedFile['status'], string> = {
   added: 'A',
@@ -50,8 +55,6 @@ export function ChangesView({
 }) {
   const { changes, merge, error: loadError } = review;
   const [open, setOpen] = useState<Set<string> | null>(null);
-  const [committing, setCommitting] = useState(false);
-  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -80,7 +83,7 @@ export function ChangesView({
   if (!changes) {
     return (
       <div className="feed">
-        <p className="loading">{loadError || 'Reading the changes…'}</p>
+        {loadError ? <p className="loading">{loadError}</p> : <Loader label="Reading the changes" />}
       </div>
     );
   }
@@ -132,43 +135,32 @@ export function ChangesView({
   }
 
   const wt = changes.worktree;
-  const uncommitted = files.filter((f) => f.uncommitted).length;
   const branch = changes.repo.branch || changes.repo.head?.slice(0, 7) || 'HEAD';
 
-  const commit = (e: FormEvent) => {
-    e.preventDefault();
-    const text = message.trim();
-    if (!text) return;
-    void act('commit', async () => {
-      const r = await api.commit(session.id, text);
-      setCommitting(false);
-      setMessage('');
-      return `Committed ${r.commit.slice(0, 7)} on ${branch}.`;
-    });
-  };
-
-  const discard = (f: ChangedFile) => {
-    const what = f.status === 'untracked' ? 'Delete the new file' : 'Discard the uncommitted changes to';
-    if (!window.confirm(`${what} ${f.path}? Orla keeps a copy in a git stash, listed by git stash list.`)) return;
+  const discard = async (f: ChangedFile) => {
+    const what = f.status === 'untracked' ? 'Delete the new file' : 'Discard the changes to';
+    if (!(await ask({ title: `${what} ${f.path.split('/').pop()}?`, body: 'Orla keeps a copy in a git stash, listed by git stash list.', confirm: 'Discard' }))) return;
     void act(`discard:${f.path}`, async () => {
       const r = await api.discard(session.id, f.path);
       return `Discarded ${f.path}. Get it back with git stash: “${r.stash}”.`;
     });
   };
 
-  const doMerge = (m: MergeState) => {
-    if (!window.confirm(`Merge ${m.branch} into ${m.base}? Orla runs git merge in ${shortPath(m.preview.into ?? '')}.`)) return;
+  const doMerge = async (m: MergeState) => {
+    if (!(await ask({ title: `Merge ${m.branch} into ${m.base}?`, body: `Orla runs git merge in ${shortPath(m.preview.into ?? '')}.`, confirm: 'Merge', danger: false }))) return;
     void act('merge', async () => {
       await api.merge(session.id);
       return `Merged ${m.branch} into ${m.base}.`;
     });
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!wt) return;
-    const ok = window.confirm(
-      `Remove the worktree folder ${shortPath(wt.path)}? Uncommitted changes go to a git stash, and the branch ${wt.branch} stays if ${wt.base} lacks its commits.`,
-    );
+    const ok = await ask({
+      title: 'Remove the worktree?',
+      body: `${shortPath(wt.path)} goes. Uncommitted changes go to a git stash, and the branch ${wt.branch} stays if ${wt.base} lacks its commits.`,
+      confirm: 'Remove',
+    });
     if (!ok) return;
     // The view that follows says what the removal kept.
     void act('remove', async () => {
@@ -191,7 +183,8 @@ export function ChangesView({
 
   // One forward action at a time: commit what is loose, have conflicts resolved, then merge.
   const mergeable = merge && merge.preview.ahead > 0 && merge.preview.clean && Boolean(merge.preview.into);
-  const commitPrimary = uncommitted > 0;
+  // Committing is left to the agent for now; the button is out of the bar.
+  const commitPrimary = false;
   const resolvePrimary = !commitPrimary && conflicts.length > 0;
 
   return (
@@ -218,28 +211,28 @@ export function ChangesView({
               )}
             </span>
           </p>
+          <p className="review-sum num">
+            <span>
+              {files.length} {files.length === 1 ? 'file' : 'files'}
+            </span>
+            <span className="plus">+{files.reduce((n, f) => n + f.added, 0).toLocaleString()}</span>
+            <span className="minus">−{files.reduce((n, f) => n + f.removed, 0).toLocaleString()}</span>
+          </p>
           {working ? (
             <p className="review-merge">
               <span className="status" data-s="run">
                 <Spinner />
               </span>
-              <span>Claude Code is working; the diffs follow its edits.</span>
+              <span>The agent is working; the diffs follow its edits.</span>
             </p>
           ) : (
             merge && <MergeLine merge={merge} />
           )}
         </div>
         <div className="review-actions">
-          <button
-            className={commitPrimary ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCommitting(true)}
-            disabled={uncommitted === 0 || committing || Boolean(busy)}
-          >
-            <Commit /> Commit…
-          </button>
           {conflicts.length > 0 && !working && (
             <button className={resolvePrimary ? 'btn btn-primary' : 'btn'} onClick={resolve} disabled={Boolean(busy)}>
-              {busy === 'ask' ? 'Asking…' : 'Ask Claude Code to resolve'}
+              {busy === 'ask' ? 'Asking…' : 'Ask the agent to resolve'}
             </button>
           )}
           {wt && conflicts.length === 0 && (
@@ -252,36 +245,17 @@ export function ChangesView({
             </button>
           )}
           {wt && (
-            <button className="btn btn-remove" onClick={remove} disabled={working || Boolean(busy)} title={working ? 'Wait for the run to end' : undefined}>
-              <Trash /> {busy === 'remove' ? 'Removing…' : 'Remove worktree'}
-            </button>
+            <Tooltip label="Wait for the run to end" side="bottom" off={!working}>
+              <span className="tip-wrap">
+                <button className="btn btn-remove" onClick={remove} disabled={working || Boolean(busy)}>
+                  <Trash /> {busy === 'remove' ? 'Removing…' : 'Remove worktree'}
+                </button>
+              </span>
+            </Tooltip>
           )}
         </div>
       </section>
 
-      {committing && (
-        <form className="commit-form" onSubmit={commit}>
-          <label className="visually-hidden" htmlFor="commit-message">
-            Commit message
-          </label>
-          <input
-            id="commit-message"
-            className="field"
-            autoFocus
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Escape' && setCommitting(false)}
-            placeholder="Commit message"
-            maxLength={2000}
-          />
-          <button className="btn btn-primary" disabled={!message.trim() || Boolean(busy)}>
-            {busy === 'commit' ? 'Committing…' : `Commit ${uncommitted} ${uncommitted === 1 ? 'file' : 'files'}`}
-          </button>
-          <button type="button" className="btn" onClick={() => setCommitting(false)}>
-            Cancel
-          </button>
-        </form>
-      )}
 
       {notice && (
         <p className="review-note" role="status">
@@ -393,11 +367,11 @@ function FileDiff({
       <div className="file-head">
         <button className="step-row file-row" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
           <ChevronRight />
-          <span className="file-status" data-s={file.status} title={statusWords[file.status]}>
+          <span className="file-status" data-s={file.status}>
             {letters[file.status]}
             <span className="visually-hidden">{statusWords[file.status]}</span>
           </span>
-          <span className="file-path" title={file.from ? `${file.from} → ${file.path}` : file.path}>
+          <span className="file-path">
             {dir && <span className="file-dir">{dir}</span>}
             <span className="file-name">{name}</span>
             {file.from && <span className="file-from">from {file.from}</span>}
@@ -414,17 +388,23 @@ function FileDiff({
             )}
           </span>
         </button>
-        {discard && (
-          <button
-            className="icon-btn file-discard"
-            onClick={discard}
-            disabled={Boolean(discardBlocked)}
-            aria-label={`Discard changes to ${file.path}`}
-            title={discardBlocked || 'Discard uncommitted changes (kept in a git stash)'}
-          >
-            <Undo />
-          </button>
-        )}
+        {/* Shown on the row's hover only: at rest the row is the file and its counts. */}
+        <div className="file-actions">
+          <Tooltip label="Add the file to the prompt" side="top">
+            <button className="icon-btn file-refer" onClick={() => insertIntoPrompt(`@${file.path}`)} aria-label={`Add ${file.path} to the prompt`}>
+              <AtSign />
+            </button>
+          </Tooltip>
+          {discard && (
+            <Tooltip label={discardBlocked || 'Discard uncommitted changes (kept in a git stash)'} side="top">
+              <span className="tip-wrap">
+                <button className="icon-btn file-discard" onClick={discard} disabled={Boolean(discardBlocked)} aria-label={`Discard changes to ${file.path}`}>
+                  <Undo />
+                </button>
+              </span>
+            </Tooltip>
+          )}
+        </div>
       </div>
       {open && <DiffBody id={bodyId} session={session} file={file} version={version} />}
     </div>
@@ -436,6 +416,27 @@ const firstLines = 1500;
 
 function DiffBody({ id, session, file, version }: { id: string; session: string; file: ChangedFile; version: number }) {
   const [diff, setDiff] = useState<{ parsed: ParsedDiff; truncated: boolean }>();
+  // Lines picked by dragging down the line numbers: on release they go into the prompt.
+  const [sel, setSel] = useState<Sel>(null);
+  const selRef = useRef<Sel>(null);
+  const grab = (line: number, how: 'down' | 'over', shift = false) => {
+    if (how === 'down') {
+      const from = shift && anchor?.path === file.path ? anchor.line : line;
+      selRef.current = { from, to: line };
+      setSel(selRef.current);
+      const up = () => {
+        removeEventListener('pointerup', up);
+        const s = selRef.current;
+        selRef.current = null;
+        setSel(null);
+        if (s) refer(file.path, s.from, s.to);
+      };
+      addEventListener('pointerup', up);
+    } else if (selRef.current) {
+      selRef.current = { ...selRef.current, to: line };
+      setSel(selRef.current);
+    }
+  };
   const [error, setError] = useState('');
   const [all, setAll] = useState(false);
 
@@ -484,7 +485,7 @@ function DiffBody({ id, session, file, version }: { id: string; session: string;
             const lines = h.lines.slice(0, Math.max(0, budget));
             budget -= lines.length;
             return (
-              <HunkRows key={i} context={h.context} oldStart={h.oldStart} newStart={h.newStart} lines={lines} />
+              <HunkRows key={i} path={file.path} context={h.context} oldStart={h.oldStart} newStart={h.newStart} lines={lines} sel={sel} grab={grab} />
             );
           })}
         </tbody>
@@ -499,7 +500,44 @@ function DiffBody({ id, session, file, version }: { id: string; session: string;
   );
 }
 
-function HunkRows({ context, oldStart, newStart, lines }: { context: string; oldStart: number; newStart: number; lines: ParsedDiff['hunks'][number]['lines'] }) {
+// The line a reference starts from, for a shift-click to make it a range.
+let anchor: { path: string; line: number } | null = null;
+
+/** Puts @path:line, or @path:a-b, into the prompt, to ask for a change right there. */
+function refer(path: string, a: number, b: number) {
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  const replaced = anchor?.path === path ? `@${path}:${anchor.line}` : undefined;
+  if (lo === hi) {
+    anchor = { path, line: lo };
+    insertIntoPrompt(`@${path}:${lo}`);
+  } else {
+    // A range made from a line just picked takes that line's place.
+    insertIntoPrompt(`@${path}:${lo}-${hi}`, replaced && (anchor!.line === a || anchor!.line === b) ? replaced : undefined);
+    anchor = null;
+  }
+}
+
+type Sel = { from: number; to: number } | null;
+
+function HunkRows({
+  path,
+  context,
+  oldStart,
+  newStart,
+  lines,
+  sel,
+  grab,
+}: {
+  path: string;
+  context: string;
+  oldStart: number;
+  newStart: number;
+  lines: ParsedDiff['hunks'][number]['lines'];
+  sel: Sel;
+  grab: (line: number, how: 'down' | 'over', shift?: boolean) => void;
+}) {
+  const lang = languageOf(path);
+  const inSel = (n?: number) => sel !== null && n !== undefined && n >= Math.min(sel.from, sel.to) && n <= Math.max(sel.from, sel.to);
   return (
     <>
       <tr className="hunk">
@@ -510,14 +548,30 @@ function HunkRows({ context, oldStart, newStart, lines }: { context: string; old
         </td>
       </tr>
       {lines.map((l, j) => (
-        <tr key={j} data-k={l.kind}>
+        <tr key={j} data-k={l.kind} data-sel={inSel(l.new ?? l.old) || undefined} onPointerEnter={() => (l.new ?? l.old) !== undefined && grab((l.new ?? l.old)!, 'over')}>
           <td className="ln">{l.old ?? ''}</td>
-          <td className="ln">{l.new ?? ''}</td>
+          <td className="ln ln-new" onPointerDown={(e) => {
+            if ((l.new ?? l.old) === undefined || e.button !== 0) return;
+            e.preventDefault();
+            grab((l.new ?? l.old)!, 'down', e.shiftKey);
+          }}>
+            {l.new ?? ''}
+            {(l.new ?? l.old) !== undefined && l.kind !== 'note' && (
+              <button
+                type="button"
+                className="ln-ref"
+                aria-label={`Refer to line ${l.new ?? l.old} in the prompt`}
+                onKeyDown={(e) => e.key === 'Enter' && refer(path, (l.new ?? l.old)!, (l.new ?? l.old)!)}
+              >
+                <Plus />
+              </button>
+            )}
+          </td>
           <td className="code">
             <span className="sign" aria-hidden="true">
               {l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ' '}
             </span>
-            {l.kind === 'note' ? <span className="diff-eof">{l.text}</span> : l.text}
+            {l.kind === 'note' ? <span className="diff-eof">{l.text}</span> : <span className="hl" dangerouslySetInnerHTML={{ __html: highlight(l.text, lang) }} />}
           </td>
         </tr>
       ))}
