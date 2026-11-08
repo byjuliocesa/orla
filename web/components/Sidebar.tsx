@@ -4,10 +4,11 @@ import { sessionName } from '@/lib/format';
 import type { Route } from '@/lib/route';
 import type { Session } from '@/lib/types';
 import { ConfirmDialog } from './ConfirmDialog';
-import { LogOut, PanelLeft, Pin, Plus } from './Icons';
+import { LogOut, PanelLeft, Pin, Plus, Books } from './Icons';
 import { Lockup } from './Logo';
 import { SessionMenu, type SessionAction } from './SessionMenu';
 import { Tooltip } from './Tooltip';
+import { Typed } from './Typed';
 
 /** The dot a session shows: its state, or how its last run ended when it is idle. */
 export function dotState(s: Session): string {
@@ -125,7 +126,7 @@ export function Sidebar({
         off={!rail}
         label={
           <>
-            {name}
+            <span className="tip-name">{name}</span>
             {stateWord[state] && <span className="tip-state" data-state={state}>{stateWord[state]}</span>}
           </>
         }
@@ -141,7 +142,7 @@ export function Sidebar({
           }}
         >
           <span className="dot" data-state={state} />
-          <span className="session-name">{name}</span>
+          <Typed className="session-name" text={name} />
           {s.pinned && (
             <span className="session-pin" aria-label="Pinned">
               <Pin />
@@ -182,7 +183,15 @@ export function Sidebar({
         </div>
       )}
 
-      <div className="sessions">
+      <div className="sessions" aria-busy={!loaded}>
+        {!loaded && (
+          // Rows of the size the sessions will take, while the list is on its way.
+          <div className="side-loading" role="status" aria-label="Loading sessions">
+            {[72, 54, 64].map((w, i) => (
+              <span key={i} className="side-ghost" style={{ width: `${w}%`, animationDelay: `${i * 120}ms` }} />
+            ))}
+          </div>
+        )}
         {open.map(row)}
         {archived.length > 0 && (
           <>
@@ -195,6 +204,12 @@ export function Sidebar({
       </div>
 
       <div className="side-foot">
+        <Tooltip label="Library" off={!rail}>
+          <button className="nav-item side-library" aria-current={route.view === 'library' ? 'page' : undefined} onClick={() => go({ view: 'library' })}>
+            <Books />
+            <span className="label">Library</span>
+          </button>
+        </Tooltip>
         <Tooltip label="Log out" off={!rail}>
           <button className="nav-item side-logout" onClick={() => setConfirm({ kind: 'logout' })}>
             <LogOut />
