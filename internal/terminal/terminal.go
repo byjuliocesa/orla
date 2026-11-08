@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+
+	"github.com/byjuliocesa/orla/internal/childenv"
 )
 
 // scrollbackLimit is how many bytes of recent output a terminal keeps for clients that attach
@@ -69,7 +71,8 @@ func start(termID string, spec Spec) (*Terminal, error) {
 
 	cmd := exec.Command(spec.Argv[0], spec.Argv[1:]...)
 	cmd.Dir = spec.Cwd
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
+	// A terminal's claude is a session of its own, whatever Orla was started from.
+	cmd.Env = append(childenv.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
 	cmd.Env = append(cmd.Env, spec.Env...)
 
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: spec.Cols, Rows: spec.Rows})

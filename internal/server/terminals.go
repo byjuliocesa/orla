@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/coder/websocket"
 
@@ -168,9 +170,35 @@ func (s *Server) readInput(ctx context.Context, cancel context.CancelFunc, c *we
 	}
 }
 
+// defaultShell is the owner's login shell, as the system records it. $SHELL comes second: it
+// says what started Orla (a Claude Code session runs zsh, say), not what the owner uses.
 func defaultShell() string {
+	if sh := loginShell("/etc/passwd", os.Getuid()); sh != "" {
+		return sh
+	}
 	if sh := os.Getenv("SHELL"); sh != "" {
 		return sh
 	}
 	return "/bin/sh"
+}
+
+// loginShell reads the shell of a user id from a passwd file, if it is there and runs.
+func loginShell(passwd string, uid int) string {
+	data, err := os.ReadFile(passwd)
+	if err != nil {
+		return ""
+	}
+	want := strconv.Itoa(uid)
+	for _, line := range strings.Split(string(data), "\n") {
+		f := strings.Split(line, ":")
+		if len(f) < 7 || f[2] != want {
+			continue
+		}
+		sh := strings.TrimSpace(f[6])
+		if st, err := os.Stat(sh); err != nil || st.IsDir() || strings.HasSuffix(sh, "/nologin") || strings.HasSuffix(sh, "/false") {
+			return ""
+		}
+		return sh
+	}
+	return ""
 }
