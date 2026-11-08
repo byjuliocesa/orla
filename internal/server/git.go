@@ -384,7 +384,7 @@ func (s *Server) removeWorktree(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	} else if len(running) > 0 {
-		writeError(w, http.StatusConflict, "Claude Code is working in this worktree's terminal; wait for it")
+		writeError(w, http.StatusConflict, "the agent is working in this worktree's terminal; wait for it")
 		return
 	}
 	removal, err := git.RemoveWorktree(ctx, git.Worktree{Path: wt.Path, Repo: wt.Repo, Branch: wt.Branch, Base: wt.Base})

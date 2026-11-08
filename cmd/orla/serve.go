@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/byjuliocesa/orla/internal/auth"
+	"github.com/byjuliocesa/orla/internal/automation"
 	"github.com/byjuliocesa/orla/internal/engine/cli"
 	"github.com/byjuliocesa/orla/internal/events"
+	"github.com/byjuliocesa/orla/internal/flow"
 	"github.com/byjuliocesa/orla/internal/server"
 	"github.com/byjuliocesa/orla/internal/session"
 	"github.com/byjuliocesa/orla/internal/store"
@@ -73,14 +75,24 @@ func serve(args []string) error {
 	defer db.Close()
 
 	bus := events.NewBus(db)
+	claude := cli.Claude{Path: *claudePath}
 	sessions := session.NewService(log, db, bus, map[string]session.Runner{
-		"claude": cli.Claude{Path: *claudePath},
+		"claude": claude,
 	})
 	sessions.ApprovalsAt("http://" + *addr + "/mcp/runs/")
 	if err := sessions.Recover(ctx); err != nil {
 		return fmt.Errorf("recovering runs: %w", err)
 	}
 	terminals := terminal.NewManager()
+	if home, err := os.UserHomeDir(); err == nil {
+		if err := flow.Install(home); err != nil {
+			log.Warn("installing /newflow", "err", err)
+		}
+	}
+
+	// Automations reach Orla over its own API, with its token.
+	automations := &automation.Manager{URL: "http://" + *addr, Token: token, Bus: bus, Logs: filepath.Join(*dataDir, "automations"), Log: log}
+	defer automations.Close()
 
 	// Every request derives from this, so ending it on shutdown ends the event streams, which
 	// otherwise stay open until the client leaves: Shutdown does not cancel requests.
@@ -91,13 +103,20 @@ func serve(args []string) error {
 		BaseContext: func(net.Listener) context.Context { return requests },
 		Handler: server.New(server.Deps{
 			Log: log, Token: token, Terminals: terminals, Store: db, Bus: bus, Sessions: sessions,
-			HookURL: "http://" + *addr + "/hooks/claude", UI: ui,
-			Worktrees: filepath.Join(*dataDir, "worktrees"),
+			HookURL: "http://" + *addr + "/hooks/claude", UI: ui, Titler: claude.Title, Contexter: claude.Context, Library: claude.Library,
+			Worktrees:   filepath.Join(*dataDir, "worktrees"),
+			Uploads:     filepath.Join(*dataDir, "uploads"),
+			Automations: automations,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	failed := make(chan error, 1)
+	go func() {
+		// What was on when Orla stopped runs again, once the API it talks to is up.
+		time.Sleep(500 * time.Millisecond)
+		server.ResumeAutomations(context.Background(), db, automations, log)
+	}()
 	go func() {
 		log.Info("listening", "addr", *addr, "data", *dataDir, "token_file", tokenPath(*dataDir))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -116,6 +135,7 @@ func serve(args []string) error {
 	defer cancel()
 	// Runs record how they ended before the streams that report them close.
 	sessions.Close()
+	automations.Close()
 	terminals.CloseAll()
 	endRequests()
 	if err := srv.Shutdown(shutdown); err != nil {
