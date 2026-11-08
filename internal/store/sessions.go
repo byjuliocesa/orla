@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -22,6 +23,17 @@ type Session struct {
 	Title    string     `json:"title,omitempty"`
 	Pinned   bool       `json:"pinned,omitempty"`
 	Archived *time.Time `json:"archived,omitempty"`
+	// ForkOf is the CLI conversation this session continues under a new id, until its first run.
+	ForkOf string `json:"fork_of,omitempty"`
+	// ForkAt is the CLI's id for the last message of ForkOf the fork keeps; empty keeps it all.
+	ForkAt string `json:"fork_at,omitempty"`
+	// ForkParent and ForkRun are the Orla session and run whose answer a fork goes on from.
+	ForkParent string `json:"fork_parent,omitempty"`
+	ForkRun    string `json:"fork_run,omitempty"`
+	// SkillsOff are the skills this session's conversations leave out.
+	SkillsOff []string `json:"skills_off"`
+	// Flows are the flow skills this session follows; every other flow is off.
+	Flows []string `json:"flows"`
 }
 
 // Run statuses. A run is "running" from start until it finishes one of the other ways.
@@ -48,8 +60,8 @@ func formatTime(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 
 func (s *Store) CreateSession(ctx context.Context, x Session) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, agent, cwd, native_session, terminal, created) VALUES (?, ?, ?, ?, ?, ?)`,
-		x.ID, x.Agent, x.Cwd, x.NativeSession, x.Terminal, formatTime(x.Created))
+		`INSERT INTO sessions (id, agent, cwd, native_session, terminal, created, title, fork_of, fork_at, fork_parent, fork_run) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		x.ID, x.Agent, x.Cwd, x.NativeSession, x.Terminal, formatTime(x.Created), x.Title, x.ForkOf, x.ForkAt, x.ForkParent, x.ForkRun)
 	return err
 }
 
@@ -71,7 +83,7 @@ func (s *Store) Sessions(ctx context.Context) ([]Session, error) {
 
 func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Session, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, agent, cwd, native_session, terminal, created, title, pinned, archived FROM sessions `+where, args...)
+		`SELECT id, agent, cwd, native_session, terminal, created, title, pinned, archived, fork_of, fork_at, fork_parent, fork_run, skills_off, flows FROM sessions `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +93,18 @@ func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Sess
 		var x Session
 		var created string
 		var archived sql.NullString
+		var skillsOff, flows string
 		if err := rows.Scan(&x.ID, &x.Agent, &x.Cwd, &x.NativeSession, &x.Terminal, &created,
-			&x.Title, &x.Pinned, &archived); err != nil {
+			&x.Title, &x.Pinned, &archived, &x.ForkOf, &x.ForkAt, &x.ForkParent, &x.ForkRun, &skillsOff, &flows); err != nil {
 			return nil, err
+		}
+		_ = json.Unmarshal([]byte(skillsOff), &x.SkillsOff)
+		_ = json.Unmarshal([]byte(flows), &x.Flows)
+		if x.Flows == nil {
+			x.Flows = []string{}
+		}
+		if x.SkillsOff == nil {
+			x.SkillsOff = []string{}
 		}
 		x.Created, _ = time.Parse(time.RFC3339Nano, created)
 		if archived.Valid {
@@ -93,6 +114,22 @@ func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Sess
 		out = append(out, x)
 	}
 	return out, rows.Err()
+}
+
+// LatestLimits is the newest report of the account's plan windows, from any session, with
+// when it came. ok is false when no run has reported one yet.
+func (s *Store) LatestLimits(ctx context.Context) (limits []byte, at time.Time, ok bool, err error) {
+	var data, when string
+	err = s.db.QueryRowContext(ctx,
+		`SELECT data, time FROM events WHERE type = 'usage' AND data LIKE '%"scope":"account"%' ORDER BY time DESC LIMIT 1`).Scan(&data, &when)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, time.Time{}, false, nil
+	}
+	if err != nil {
+		return nil, time.Time{}, false, err
+	}
+	at, _ = time.Parse(time.RFC3339Nano, when)
+	return []byte(data), at, true, nil
 }
 
 func (s *Store) SetNativeSession(ctx context.Context, id, native string) error {
@@ -192,6 +229,26 @@ func (s *Store) SetSessionTerminal(ctx context.Context, id, terminal string) err
 
 func (s *Store) SetSessionTitle(ctx context.Context, id, title string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET title = ? WHERE id = ?`, title, id)
+	return err
+}
+
+// SetSessionSkillsOff sets the skills a session leaves out.
+func (s *Store) SetSessionSkillsOff(ctx context.Context, id string, names []string) error {
+	if names == nil {
+		names = []string{}
+	}
+	b, _ := json.Marshal(names)
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET skills_off = ? WHERE id = ?`, string(b), id)
+	return err
+}
+
+// SetSessionFlows sets the flows a session follows.
+func (s *Store) SetSessionFlows(ctx context.Context, id string, names []string) error {
+	if names == nil {
+		names = []string{}
+	}
+	b, _ := json.Marshal(names)
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET flows = ? WHERE id = ?`, string(b), id)
 	return err
 }
 

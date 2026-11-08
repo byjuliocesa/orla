@@ -25,6 +25,9 @@ const (
 	FilesChanged      = "files.changed"
 	Status            = "status"
 	Error             = "error"
+	// SessionUpdated says what the owner sets on a session changed, such as its title, so
+	// clients reload their lists. It carries the new title.
+	SessionUpdated = "session.updated"
 )
 
 // Source says which engine and agent produced an event.
