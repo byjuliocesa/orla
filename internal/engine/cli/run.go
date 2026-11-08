@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"slices"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/byjuliocesa/orla/internal/childenv"
 	"github.com/byjuliocesa/orla/internal/events"
 )
 
@@ -36,10 +36,21 @@ type Spec struct {
 	Prompt string
 	// Resume is the CLI's session id from an earlier run; empty starts a new conversation.
 	Resume string
+	// Fork resumes under a new id, leaving the resumed conversation as it was.
+	Fork bool
+	// ResumeAt keeps the resumed conversation only up to this message of it.
+	ResumeAt string
+	// Settings is passed as --settings for this run alone, such as skills turned off.
+	Settings string
+	// System is added to Claude Code's system prompt for this run only.
+	System string
 	// PermissionMode overrides the CLI's own default. Empty keeps the owner's setting in the
 	// CLI, which may well be bypassPermissions.
 	PermissionMode string
 	Model          string
+	Effort         string
+	// AddDirs are folders outside the working one the CLI may read and write.
+	AddDirs []string
 	// Approvals, when set, sends the CLI's permission prompts to Orla instead of refusing them.
 	Approvals *Approvals
 }
@@ -72,12 +83,30 @@ func (c Claude) args(spec Spec) []string {
 	args := []string{"-p", spec.Prompt, "--output-format", "stream-json", "--verbose"}
 	if spec.Resume != "" {
 		args = append(args, "--resume", spec.Resume)
+		if spec.Fork {
+			args = append(args, "--fork-session")
+		}
+		if spec.ResumeAt != "" {
+			args = append(args, "--resume-session-at", spec.ResumeAt)
+		}
 	}
 	if spec.PermissionMode != "" {
 		args = append(args, "--permission-mode", spec.PermissionMode)
 	}
 	if spec.Model != "" {
 		args = append(args, "--model", spec.Model)
+	}
+	if spec.Effort != "" {
+		args = append(args, "--effort", spec.Effort)
+	}
+	if spec.Settings != "" {
+		args = append(args, "--settings", spec.Settings)
+	}
+	if spec.System != "" {
+		args = append(args, "--append-system-prompt", spec.System)
+	}
+	for _, d := range spec.AddDirs {
+		args = append(args, "--add-dir", d)
 	}
 	if a := spec.Approvals; a != nil {
 		config, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
@@ -220,7 +249,7 @@ var TerminalEnv = []string{"ORLA_TERMINAL", "ORLA_HOOK_URL", "ORLA_HOOK_TOKEN"}
 // taken for the terminal's.
 func headlessEnv() []string {
 	var env []string
-	for _, kv := range os.Environ() {
+	for _, kv := range childenv.Environ() {
 		name, _, _ := strings.Cut(kv, "=")
 		if !slices.Contains(TerminalEnv, name) {
 			env = append(env, kv)
