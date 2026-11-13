@@ -140,7 +140,7 @@ function FlowLibrary({ sessions }: { sessions: Session[] }) {
                         <span className="au-desc">{f.description}</span>
                       </span>
                     </button>
-                    <span className="au-trigger num">{f.steps.length} steps</span>
+                    <span className="au-trigger num">{f.steps.length === 1 ? "1 step" : `${f.steps.length} steps`}</span>
                     <span className="au-count">{by.length === 0 ? 'No session' : by.length === 1 ? '1 session' : `${by.length} sessions`}</span>
                   </div>
                   {open === f.name && (
