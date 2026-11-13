@@ -119,6 +119,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
 	api.HandleFunc("GET /v1/library", s.libraryStatus)
 	api.HandleFunc("GET /v1/library/key", s.libraryKey)
+	api.HandleFunc("POST /v1/library/key", s.generateLibraryKey)
 	api.HandleFunc("PUT /v1/library/key", s.setLibraryKey)
 	api.HandleFunc("DELETE /v1/library/key", s.removeLibraryKey)
 	api.HandleFunc("PATCH /v1/library", s.librarySettings)

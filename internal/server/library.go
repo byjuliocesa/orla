@@ -40,15 +40,29 @@ func (s *Server) libraryStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-// libraryKey answers the library's public SSH key, making one the first time.
+// libraryKey answers the library's public SSH key, empty when there is none.
 func (s *Server) libraryKey(w http.ResponseWriter, r *http.Request) {
 	if s.shelf == nil {
 		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
 		return
 	}
-	key, err := s.shelf.PublicKey(r.Context())
+	key, err := s.shelf.PublicKey()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, key)
+}
+
+// generateLibraryKey makes a key for this machine, when it has none.
+func (s *Server) generateLibraryKey(w http.ResponseWriter, r *http.Request) {
+	if s.shelf == nil {
+		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
+		return
+	}
+	key, err := s.shelf.GenerateKey(r.Context())
+	if err != nil {
+		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, key)
@@ -75,7 +89,7 @@ func (s *Server) setLibraryKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, key)
 }
 
-// removeLibraryKey deletes the library's key; a new one is made when next asked for.
+// removeLibraryKey deletes the library's key.
 func (s *Server) removeLibraryKey(w http.ResponseWriter, r *http.Request) {
 	if s.shelf == nil {
 		writeError(w, http.StatusNotFound, "This Orla keeps no library.")

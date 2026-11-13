@@ -152,17 +152,23 @@ func TestRedact(t *testing.T) {
 	}
 }
 
-func TestLibraryKeyIsMadeOnceOrTheOwnersOwn(t *testing.T) {
+func TestLibraryKeyIsMadeOnRequestOrTheOwnersOwn(t *testing.T) {
 	ctx := context.Background()
 	m := machine(t)
 	m.Keys = filepath.Join(m.Home, "keys")
-	a, err := m.PublicKey(ctx)
+	if none, err := m.PublicKey(); err != nil || none.Public != "" {
+		t.Fatalf("before any: %+v %v", none, err)
+	}
+	a, err := m.GenerateKey(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := m.PublicKey(ctx)
+	b, _ := m.PublicKey()
 	if !strings.HasPrefix(a.Public, "ssh-ed25519 ") || a != b || a.Own {
 		t.Fatalf("keys %+v then %+v", a, b)
+	}
+	if _, err := m.GenerateKey(ctx); err == nil {
+		t.Fatal("a second key replaced the first")
 	}
 	if c := m.sshCommand(); !strings.Contains(c, "-i '"+m.keyPath()+"'") || !strings.Contains(c, "StrictHostKeyChecking=accept-new") {
 		t.Fatalf("ssh command: %s", c)
@@ -179,7 +185,7 @@ func TestLibraryKeyIsMadeOnceOrTheOwnersOwn(t *testing.T) {
 	if err != nil || !got.Own || got.Public != strings.TrimSpace(string(pub)) {
 		t.Fatalf("own key: %+v %v", got, err)
 	}
-	if again, _ := m.PublicKey(ctx); again != got {
+	if again, _ := m.PublicKey(); again != got {
 		t.Fatalf("after setting: %+v", again)
 	}
 	if _, err := m.SetKey(ctx, "not a key"); err == nil {
@@ -192,13 +198,11 @@ func TestLibraryKeyIsMadeOnceOrTheOwnersOwn(t *testing.T) {
 		t.Fatalf("a key with a passphrase: %v", err)
 	}
 
-	// Removed, the next one asked for is made anew.
 	if err := m.RemoveKey(); err != nil {
 		t.Fatal(err)
 	}
-	fresh, _ := m.PublicKey(ctx)
-	if fresh.Own || fresh.Public == got.Public {
-		t.Fatalf("after removing: %+v", fresh)
+	if gone, _ := m.PublicKey(); gone.Public != "" {
+		t.Fatalf("after removing: %+v", gone)
 	}
 }
 

@@ -27,15 +27,30 @@ type Key struct {
 	Own bool `json:"own"`
 }
 
-// PublicKey answers the library's key, making one the first time: the key the owner adds to
-// the repository (on GitHub, as a deploy key with write access) to let this machine in.
-func (m *Manager) PublicKey(ctx context.Context) (Key, error) {
+// PublicKey answers the library's key; an empty one when there is none yet.
+func (m *Manager) PublicKey() (Key, error) {
 	if m.Keys == "" {
 		return Key{}, errors.New("this Orla keeps no key of its own")
 	}
+	b, err := os.ReadFile(m.keyPath() + ".pub")
+	if errors.Is(err, os.ErrNotExist) {
+		return Key{}, nil
+	}
+	if err != nil {
+		return Key{}, err
+	}
 	_, own := os.Stat(filepath.Join(m.Keys, ownMark))
-	if b, err := os.ReadFile(m.keyPath() + ".pub"); err == nil {
-		return Key{Public: strings.TrimSpace(string(b)), Own: own == nil}, nil
+	return Key{Public: strings.TrimSpace(string(b)), Own: own == nil}, nil
+}
+
+// GenerateKey makes a key for this machine, when it has none: the key the owner adds to the
+// repository (on GitHub, as a deploy key with write access) to let this machine in.
+func (m *Manager) GenerateKey(ctx context.Context) (Key, error) {
+	if k, err := m.PublicKey(); err != nil || k.Public != "" {
+		if err == nil {
+			err = errors.New("this machine already has a key; remove it first")
+		}
+		return Key{}, err
 	}
 	if err := os.MkdirAll(m.Keys, 0o700); err != nil {
 		return Key{}, err
@@ -45,8 +60,7 @@ func (m *Manager) PublicKey(ctx context.Context) (Key, error) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return Key{}, fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))
 	}
-	b, err := os.ReadFile(m.keyPath() + ".pub")
-	return Key{Public: strings.TrimSpace(string(b))}, err
+	return m.PublicKey()
 }
 
 // SetKey puts the owner's own private key in place of the library's, after checking it is one:
@@ -89,7 +103,7 @@ func (m *Manager) SetKey(ctx context.Context, private string) (Key, error) {
 	return Key{Public: pub, Own: true}, nil
 }
 
-// RemoveKey deletes the library's key; the next one asked for is made anew.
+// RemoveKey deletes the library's key.
 func (m *Manager) RemoveKey() error {
 	if m.Keys == "" {
 		return nil
