@@ -66,7 +66,8 @@ func List(home string) []Automation {
 	var out []Automation
 	entries, _ := os.ReadDir(Root(home))
 	for _, e := range entries {
-		if !e.IsDir() {
+		// The library links its automations in.
+		if !e.IsDir() && e.Type()&os.ModeSymlink == 0 {
 			continue
 		}
 		if a, ok := Read(filepath.Join(Root(home), e.Name(), "AUTOMATION.md")); ok {

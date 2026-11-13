@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/byjuliocesa/orla/internal/automation"
+	"github.com/byjuliocesa/orla/internal/flow"
 	"github.com/byjuliocesa/orla/internal/store"
 )
 
@@ -124,7 +125,11 @@ func (s *Server) deleteAutomation(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	err := errors.Join(s.store.DropAutomations(r.Context(), a.Name, ""), os.RemoveAll(a.Dir))
+	dir, err := flow.Unlink(a.Dir)
+	if err == nil {
+		err = os.RemoveAll(dir)
+	}
+	err = errors.Join(s.store.DropAutomations(r.Context(), a.Name, ""), err)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

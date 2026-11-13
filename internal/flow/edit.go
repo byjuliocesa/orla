@@ -39,10 +39,14 @@ func ArchiveFlow(home, cwd, name string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	if err := os.Rename(f.Dir, dst); err != nil {
+	src, err := Unlink(f.Dir)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dst, origin), []byte(f.Dir), 0o644)
+	if err := os.Rename(src, dst); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dst, origin), []byte(src), 0o644)
 }
 
 // RestoreFlow puts an archived flow back where it was.
@@ -77,7 +81,26 @@ func DeleteFlow(home, cwd, name string) error {
 	if Kind(f.Path) != "flow" {
 		return fmt.Errorf("%s is not a flow", f.Dir)
 	}
-	return os.RemoveAll(f.Dir)
+	dir, err := Unlink(f.Dir)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(dir)
+}
+
+// Unlink returns the folder a skill entry stands for: the entry itself, or, when it is a link
+// such as the library makes, the folder it points to, with the link removed. Moving or deleting
+// only the link would leave the folder behind, and the library would link it again.
+func Unlink(dir string) (string, error) {
+	fi, err := os.Lstat(dir)
+	if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		return dir, err
+	}
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", err
+	}
+	return real, os.Remove(dir)
 }
 
 // doc is a SKILL.md cut at its steps: what comes before them, then each step's lines.
