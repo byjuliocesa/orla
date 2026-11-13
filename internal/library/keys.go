@@ -70,7 +70,13 @@ func (m *Manager) SetKey(ctx context.Context, private string) (Key, error) {
 	if m.Keys == "" {
 		return Key{}, errors.New("this Orla keeps no key of its own")
 	}
-	private = strings.TrimSpace(strings.ReplaceAll(private, "\r\n", "\n")) + "\n"
+	private = strings.TrimSpace(strings.ReplaceAll(private, "\r\n", "\n"))
+	// Copied from a terminal, the BEGIN and END lines are easy to leave behind; an OpenSSH key's
+	// body says what it is ("openssh-key-v1" in base64), so they are put back.
+	if !strings.Contains(private, "PRIVATE KEY-----") && strings.HasPrefix(private, "b3BlbnNzaC1rZXktdjE") {
+		private = "-----BEGIN OPENSSH PRIVATE KEY-----\n" + private + "\n-----END OPENSSH PRIVATE KEY-----"
+	}
+	private += "\n"
 	if !strings.Contains(private, "PRIVATE KEY-----") {
 		return Key{}, errors.New("that is not a private key: paste the whole file, from its BEGIN line to its END line")
 	}

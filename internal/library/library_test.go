@@ -188,6 +188,10 @@ func TestLibraryKeyIsMadeOnRequestOrTheOwnersOwn(t *testing.T) {
 	if again, _ := m.PublicKey(); again != got {
 		t.Fatalf("after setting: %+v", again)
 	}
+	lines := strings.Split(strings.TrimSpace(string(priv)), "\n")
+	if bare, err := m.SetKey(ctx, strings.Join(lines[1:len(lines)-1], "\n")); err != nil || bare.Public != got.Public {
+		t.Fatalf("a key without its BEGIN and END lines: %+v %v", bare, err)
+	}
 	if _, err := m.SetKey(ctx, "not a key"); err == nil {
 		t.Fatal("text that is no key was taken")
 	}
