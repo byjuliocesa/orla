@@ -20,6 +20,7 @@ import (
 	"github.com/byjuliocesa/orla/internal/engine/cli"
 	"github.com/byjuliocesa/orla/internal/events"
 	"github.com/byjuliocesa/orla/internal/flow"
+	"github.com/byjuliocesa/orla/internal/library"
 	"github.com/byjuliocesa/orla/internal/server"
 	"github.com/byjuliocesa/orla/internal/session"
 	"github.com/byjuliocesa/orla/internal/store"
@@ -91,6 +92,11 @@ func serve(args []string) error {
 	}
 
 	// Automations reach Orla over its own API, with its token.
+	// The library: the owner's skills, flows and automations, kept in a repository of their own.
+	home, _ := os.UserHomeDir()
+	shelf := &library.Manager{Root: filepath.Join(*dataDir, "library"), Home: home, Settings: filepath.Join(*dataDir, "library.json"), Log: log}
+	go shelf.Run(ctx)
+
 	automations := &automation.Manager{URL: "http://" + *addr, Token: token, Bus: bus, Logs: filepath.Join(*dataDir, "automations"), Log: log}
 	defer automations.Close()
 
@@ -107,6 +113,7 @@ func serve(args []string) error {
 			Worktrees:   filepath.Join(*dataDir, "worktrees"),
 			Uploads:     filepath.Join(*dataDir, "uploads"),
 			Automations: automations,
+			Shelf:       shelf,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
