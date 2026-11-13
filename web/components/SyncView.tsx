@@ -270,6 +270,9 @@ export function Connect({
   const [remote, setRemote] = useState('');
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  // While connecting, nothing else on the page answers, so the clone or push is not cut short.
+  useEffect(() => (busy && form.current ? freezeAround(form.current) : undefined), [busy]);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const v = remote.trim();
@@ -290,7 +293,8 @@ export function Connect({
     }
   };
   return (
-    <form className="sy-connect" onSubmit={(e) => void submit(e)} noValidate>
+    <form ref={form} className="sy-connect" onSubmit={(e) => void submit(e)} noValidate aria-busy={busy}>
+      <fieldset className="sy-fieldset" disabled={busy}>
       <div className="sy-intro">
         <h2 id={titleId}>{title}</h2>
         <p>{lead}</p>
@@ -315,6 +319,7 @@ export function Connect({
         </button>
       </div>
       {children}
+      </fieldset>
     </form>
   );
 }
@@ -399,6 +404,22 @@ function Connected({ st, busy, run, setSt }: { st: LibraryStatus; busy: string |
 
     </section>
   );
+}
+
+/**
+ * Makes everything but `keep` inert, up to the document, and answers the undo. Notifications stay
+ * live, so an error still reaches the owner.
+ */
+function freezeAround(keep: HTMLElement): () => void {
+  const frozen: HTMLElement[] = [];
+  for (let el: HTMLElement | null = keep; el && el !== document.body; el = el.parentElement) {
+    for (const sib of Array.from(el.parentElement?.children ?? [])) {
+      if (sib === el || !(sib instanceof HTMLElement) || sib.inert || sib.classList.contains('toaster')) continue;
+      sib.inert = true;
+      frozen.push(sib);
+    }
+  }
+  return () => frozen.forEach((f) => (f.inert = false));
 }
 
 function capital(s: string): string {

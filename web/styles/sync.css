@@ -64,6 +64,9 @@
   border-radius: var(--radius);
   background: var(--panel);
 }
+.sy-fieldset {
+  display: contents;
+}
 .sy-intro h2 {
   margin: 0 0 6px;
   font-size: 20px;

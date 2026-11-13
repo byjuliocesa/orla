@@ -2,6 +2,7 @@ import '@/styles/sync.css';
 import { useEffect, useRef, useState } from 'react';
 import { Sea, type SeaState } from './Sea';
 import { Connect } from './SyncView';
+import { Toaster } from './Toast';
 
 // After a login the arrival's water recedes for about this long; the dialog waits for it.
 const AFTER_ARRIVAL = 1750;
@@ -44,7 +45,8 @@ export function Onboarding({ done }: { done: () => void }) {
       aria-labelledby="ob-title"
       onCancel={(e) => {
         e.preventDefault();
-        close();
+        // Esc does not interrupt a connection under way.
+        if (!ref.current?.querySelector('[aria-busy="true"]')) close();
       }}
     >
       <div className="ob-sea" aria-hidden="true">
@@ -57,6 +59,8 @@ export function Onboarding({ done }: { done: () => void }) {
           </button>
         </Connect>
       </div>
+      {/* A modal dialog hides the page's notifications beneath it; these show above. */}
+      <Toaster />
     </dialog>
   );
 }
