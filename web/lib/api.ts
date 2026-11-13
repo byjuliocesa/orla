@@ -16,6 +16,12 @@ export class ApiError extends Error {
   }
 }
 
+/** The SSH key the library reaches its repository with; `own` when it is the owner's. */
+export interface LibraryKey {
+  key: string;
+  own: boolean;
+}
+
 /** Claude Code's /context: what fills a conversation's window. */
 export interface ContextPart {
   name: string;
@@ -131,7 +137,9 @@ export const api = {
   archivedFlows: () => call<{ flows: Flow[]; steps: { flow: string; step: FlowStep; path: string }[] }>('GET', '/v1/flows/archived'),
   skillDoc: (name: string, cwd: string) => call<{ name: string; path: string; body: string }>('GET', `/v1/skill-doc?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(cwd)}`),
   library: () => call<LibraryStatus>('GET', '/v1/library'),
-  libraryKey: () => call<{ key: string }>('GET', '/v1/library/key'),
+  libraryKey: () => call<LibraryKey>('GET', '/v1/library/key'),
+  setLibraryKey: (privateKey: string) => call<LibraryKey>('PUT', '/v1/library/key', { private: privateKey }),
+  removeLibraryKey: () => call<LibraryKey>('DELETE', '/v1/library/key'),
   libraryAuto: (auto: boolean) => call<LibraryStatus>('PATCH', '/v1/library', { auto }),
   libraryAction: (action: 'connect' | 'sync' | 'disconnect' | 'adopt' | 'move', body?: { remote?: string; from?: string; name?: string; to?: string }) =>
     call<LibraryStatus>('POST', `/v1/library/${action}`, body),

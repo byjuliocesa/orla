@@ -1,11 +1,11 @@
 import '@/styles/sync.css';
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, type LibraryKey } from '@/lib/api';
 import { ago, shortPath } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
 import type { LibraryEntry, LibraryStatus, SavedSession } from '@/lib/types';
 import { ask } from './ConfirmDialog';
-import { Copy, RepoIcon, SyncIcon } from './Icons';
+import { Copy, Pencil, RepoIcon, SyncIcon, Trash } from './Icons';
 import { toast } from './Toast';
 
 type Action = Parameters<typeof api.libraryAction>[0];
@@ -271,17 +271,8 @@ export function Connect({
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
-  const [key, setKey] = useState<string | null>(null);
-  useEffect(() => {
-    api.libraryKey().then((r) => setKey(r.key), () => {});
-  }, []);
-  const copyKey = () => {
-    if (!key) return;
-    navigator.clipboard?.writeText(key).then(
-      () => toast('Key copied.', 'ok'),
-      () => toast('The browser did not allow copying. Select the key and copy it.'),
-    );
-  };
+  // The key only matters once the repository refused this machine.
+  const [failed, setFailed] = useState(false);
   // While connecting, nothing else on the page answers, so the clone or push is not cut short.
   useEffect(() => (busy && form.current ? freezeAround(form.current) : undefined), [busy]);
   const submit = async (e: React.FormEvent) => {
@@ -298,6 +289,7 @@ export function Connect({
       toast('Library synced.', 'info');
     } catch (err) {
       toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not reach the repository.');
+      setFailed(true);
       input.current?.focus();
     } finally {
       setBusy(false);
@@ -329,24 +321,112 @@ export function Connect({
           {busy ? 'Connecting…' : 'Connect'}
         </button>
       </div>
-      {key && (
-        <div className="sy-key">
-          <div className="sy-key-head">
-            <span className="sy-label">This machine’s key</span>
-            <button type="button" className="fl-act" onClick={copyKey}>
-              <Copy />
-              Copy
-            </button>
-          </div>
-          <code className="sy-key-value" title={key}>
-            {key}
-          </code>
-          <p className="sy-key-note">Add it to the repository with write access.</p>
-        </div>
-      )}
+      {failed && <KeyBox />}
       {children}
       </fieldset>
     </form>
+  );
+}
+
+/** The SSH key this machine reaches the repository with: Orla's, or the owner's own. */
+function KeyBox() {
+  const [key, setKey] = useState<LibraryKey | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Asked inline, not in a dialog: this box may itself sit in one.
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    api.libraryKey().then(setKey, (err) => toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not read its key.'));
+  }, []);
+
+  const copy = () =>
+    key &&
+    navigator.clipboard?.writeText(key.key).then(
+      () => toast('Key copied.', 'ok'),
+      () => toast('The browser did not allow copying. Select the key and copy it.'),
+    );
+  const save = async () => {
+    setBusy(true);
+    try {
+      setKey(await api.setLibraryKey(draft));
+      setEditing(false);
+      setDraft('');
+      toast('Key saved.', 'ok');
+    } catch (err) {
+      toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not save the key.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    if (!confirming) return setConfirming(true);
+    setConfirming(false);
+    try {
+      setKey(await api.removeLibraryKey());
+      toast('Key removed.', 'ok');
+    } catch (err) {
+      toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not remove the key.');
+    }
+  };
+
+  if (!key) return null;
+  return (
+    <div className="sy-key">
+      <div className="sy-key-head">
+        <span className="sy-label">{key.own ? 'Your key' : 'This machine’s key'}</span>
+        {!editing && (
+          <span className="sy-key-acts">
+            <button type="button" className="fl-act" onClick={() => void copy()}>
+              <Copy />
+              Copy
+            </button>
+            <button type="button" className="fl-act" onClick={() => setEditing(true)}>
+              <Pencil />
+              {key.own ? 'Change' : 'Use my own'}
+            </button>
+            {key.own && (
+              <button type="button" className="fl-act fl-act-delete" onClick={() => void remove()} onBlur={() => setConfirming(false)}>
+                <Trash />
+                {confirming ? 'Remove for good' : 'Remove'}
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+      {editing ? (
+        <>
+          <textarea
+            className="sy-input sy-key-edit"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+            aria-label="Private key"
+            spellCheck={false}
+            autoComplete="off"
+            rows={5}
+            autoFocus
+            disabled={busy}
+          />
+          <div className="sy-key-edit-acts">
+            <button type="button" className="btn" onClick={() => setEditing(false)} disabled={busy}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || !draft.trim()}>
+              {busy ? 'Saving…' : 'Save key'}
+            </button>
+          </div>
+          <p className="sy-key-note">The private key stays on this machine. One with a passphrase cannot be used.</p>
+        </>
+      ) : (
+        <>
+          <code className="sy-key-value" title={key.key}>
+            {key.key}
+          </code>
+          <p className="sy-key-note">{key.own ? 'It needs access to the repository.' : 'Add it to the repository with write access, then connect again.'}</p>
+        </>
+      )}
+    </div>
   );
 }
 

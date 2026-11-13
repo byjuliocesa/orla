@@ -81,9 +81,25 @@
 .sy-key-head .sy-label {
   margin: 0;
 }
+.sy-key-acts {
+  display: inline-flex;
+  gap: 2px;
+}
 .sy-key-head .fl-act {
   height: 26px;
   font-size: 12px;
+}
+.sy-key-edit {
+  height: auto;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.sy-key-edit-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .sy-key-value {
   display: block;
@@ -149,7 +165,8 @@
 }
 /* No ring around the field: focus shows as a lighter edge and the caret. */
 .sy-input:focus,
-.sy-input:focus-visible {
+.sy-input:focus-visible,
+.sy-key-edit:focus {
   outline: none;
   border-color: var(--edge-hover);
 }
