@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/byjuliocesa/orla/internal/automation"
+	"github.com/byjuliocesa/orla/internal/library"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -39,6 +40,8 @@ type Deps struct {
 	Library func(ctx context.Context, cwd string) ([]cli.ContextPart, error)
 	// Automations runs the owner's automations; nil leaves them off.
 	Automations *automation.Manager
+	// Shelf keeps the owner's library in a git repository; nil leaves the library unsynced.
+	Shelf *library.Manager
 	// Titler names a session from its first prompt; nil leaves sessions unnamed.
 	Titler func(ctx context.Context, prompt string) (string, error)
 	// UI serves the web client at every path outside the API. Nil serves a note saying the
@@ -48,6 +51,7 @@ type Deps struct {
 
 type Server struct {
 	automations *automation.Manager
+	shelf       *library.Manager
 	log         *slog.Logger
 	terminals   *terminal.Manager
 	store       *store.Store
@@ -83,7 +87,7 @@ type cachedContext struct {
 func New(d Deps) http.Handler {
 	s := &Server{
 		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
-		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations,
+		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations, shelf: d.Shelf,
 	}
 
 	api := http.NewServeMux()
@@ -99,6 +103,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("PATCH /v1/sessions/{id}", s.updateSession)
 	api.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
 	api.HandleFunc("POST /v1/sessions/{id}/fork", s.forkSession)
+	api.HandleFunc("POST /v1/sessions/{id}/save", s.saveSession)
 	api.HandleFunc("GET /v1/limits", s.limits)
 	api.HandleFunc("GET /v1/skills", s.skills)
 	api.HandleFunc("GET /v1/automations", s.listAutomations)
@@ -112,6 +117,13 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("POST /v1/flows/{name}/steps/{step}/{action}", s.flowAction)
 	api.HandleFunc("DELETE /v1/flows/{name}/steps/{step}", s.flowAction)
 	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
+	api.HandleFunc("GET /v1/library", s.libraryStatus)
+	api.HandleFunc("GET /v1/library/key", s.libraryKey)
+	api.HandleFunc("POST /v1/library/key", s.generateLibraryKey)
+	api.HandleFunc("PUT /v1/library/key", s.setLibraryKey)
+	api.HandleFunc("DELETE /v1/library/key", s.removeLibraryKey)
+	api.HandleFunc("PATCH /v1/library", s.librarySettings)
+	api.HandleFunc("POST /v1/library/{action}", s.libraryAction)
 	api.HandleFunc("GET /v1/prefs/{key}", s.getPref)
 	api.HandleFunc("PUT /v1/prefs/{key}", s.putPref)
 	api.HandleFunc("GET /v1/files", s.files)

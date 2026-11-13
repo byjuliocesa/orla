@@ -1,0 +1,715 @@
+/* Library › Sync: the library in a repository of the owner's. */
+
+.lib-headbar .head-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+/* How the library stands, beside the tabs; it opens Sync. */
+.sy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px 0 9px;
+  border-radius: 13px;
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+  transition:
+    background 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+.sy-chip:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.sy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.sy-chip[data-state='synced'] .sy-dot {
+  background: var(--ok);
+}
+.sy-chip[data-state='pending'] .sy-dot,
+.sy-chip[data-state='syncing'] .sy-dot {
+  background: var(--accent);
+}
+.sy-chip[data-state='conflict'] .sy-dot {
+  background: var(--wait);
+}
+.sy-chip[data-state='error'] .sy-dot {
+  background: var(--fail);
+}
+.sy-chip[data-state='off'] .sy-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--faint);
+}
+
+.sy-col {
+  gap: 30px;
+}
+
+/* ---------- Not connected: the address of a repository ---------- */
+
+.sy-connect {
+  display: flex;
+  flex-direction: column;
+  padding: 26px 26px 22px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+/* The key this machine reaches the repository with, to add there once. */
+.sy-key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--raise);
+}
+.sy-key-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sy-key-head .sy-label {
+  margin: 0;
+}
+.sy-key-acts {
+  display: inline-flex;
+  gap: 2px;
+}
+.sy-key-head .fl-act {
+  height: 26px;
+  font-size: 12px;
+}
+.sy-key-edit:disabled {
+  opacity: 0.7;
+  resize: none;
+}
+/* Lined up with the address field above: same inset, size and leading. */
+.sy-key-edit {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 9px 12px;
+  font: 13px/1.5 var(--mono);
+  resize: vertical;
+}
+.sy-key-edit::placeholder {
+  font: inherit;
+}
+.sy-key-edit-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.sy-key-value {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font: 12px var(--mono);
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+.sy-key-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+.sy-fieldset {
+  display: contents;
+}
+.sy-intro h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  text-wrap: balance;
+}
+.sy-intro p {
+  margin: 0 0 22px;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+.sy-label {
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.sy-field {
+  display: flex;
+  gap: 8px;
+}
+.sy-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--edge);
+  background: var(--bg);
+  color: var(--text);
+  font: 13px var(--mono);
+  transition: border-color 140ms var(--ease-out);
+}
+.sy-input::placeholder {
+  color: var(--placeholder, var(--faint));
+}
+.sy-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.sy-input:hover:not(:disabled) {
+  border-color: var(--edge-hover);
+}
+/* No ring around the field: focus shows as a lighter edge and the caret. */
+.sy-input:focus,
+.sy-input:focus-visible,
+.sy-key-edit:focus {
+  outline: none;
+  border-color: var(--edge-hover);
+}
+.sy-field .btn {
+  height: 36px;
+  padding: 0 16px;
+}
+
+/* ---------- Connected: this machine, the wire, the repository ---------- */
+
+.sy-link {
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+.sy-ends {
+  display: grid;
+  grid-template-columns: max-content minmax(72px, 1fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px 18px;
+}
+.sy-end {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sy-end-remote {
+  align-items: flex-end;
+  text-align: right;
+}
+.sy-end-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.sy-end-label svg {
+  width: 13px;
+  height: 13px;
+}
+.sy-end-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sy-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sy-branch {
+  font: 500 12px var(--mono);
+  color: var(--dim);
+}
+
+/* The wire between the two: still when synced, running while a sync is under way. */
+.sy-wire {
+  position: relative;
+  height: 28px;
+  display: grid;
+  place-items: center;
+}
+.sy-wire-line {
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--hover), var(--press) 50%, var(--hover));
+}
+.sy-link[data-state='synced'] .sy-wire-line {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 20%, transparent), color-mix(in srgb, var(--ok) 55%, transparent) 50%, color-mix(in srgb, var(--ok) 20%, transparent));
+}
+.sy-link[data-state='syncing'] .sy-wire-line {
+  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 16px);
+  background-size: 32px 2px;
+  animation: sy-run 640ms linear infinite;
+  opacity: 0.8;
+}
+.sy-link[data-state='conflict'] .sy-wire-line,
+.sy-link[data-state='error'] .sy-wire-line {
+  background: repeating-linear-gradient(90deg, var(--faint) 0 3px, transparent 3px 8px);
+  opacity: 0.6;
+}
+.sy-wire-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--raise);
+  color: var(--dim);
+  box-shadow: 0 0 0 4px var(--panel);
+}
+.sy-link[data-state='synced'] .sy-wire-icon {
+  color: var(--ok);
+}
+.sy-link[data-state='conflict'] .sy-wire-icon {
+  color: var(--wait);
+}
+.sy-link[data-state='error'] .sy-wire-icon {
+  color: var(--fail-text);
+}
+.sy-link[data-state='syncing'] .sy-wire-icon {
+  color: var(--accent);
+}
+.sy-link[data-state='syncing'] .sy-wire-icon svg {
+  animation: sy-turn 1.1s var(--ease-out) infinite;
+}
+@keyframes sy-run {
+  to {
+    background-position: 32px 0;
+  }
+}
+@keyframes sy-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sy-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--raise);
+}
+.sy-state {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.sy-link[data-state='conflict'] .sy-state {
+  color: var(--wait-text);
+}
+.sy-link[data-state='error'] .sy-state {
+  color: var(--fail-text);
+}
+.sy-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dim);
+  cursor: pointer;
+}
+.sy-now svg {
+  width: 14px;
+  height: 14px;
+}
+.sy-now:hover:not(:disabled) svg {
+  transform: rotate(180deg);
+  transition: transform 420ms var(--ease-out);
+}
+
+.sy-problem {
+  margin: 0 24px 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--wait-ground);
+  color: var(--wait-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sy-link[data-state='error'] .sy-problem {
+  background: var(--fail-ground);
+  color: var(--fail-text);
+}
+.sy-problem p {
+  margin: 0;
+}
+.sy-problem ul {
+  margin: 8px 0;
+  padding-left: 18px;
+  font: 12px var(--mono);
+}
+.sy-problem code {
+  font: 12px var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.sy-off {
+  flex: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--dim);
+  transition:
+    background 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+.sy-off:hover:not(:disabled) {
+  background: var(--fail-ground);
+  color: var(--fail-text);
+}
+
+/* ---------- What is in the library, and what is not ---------- */
+
+.sy-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 4px;
+}
+.sy-head h3 {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.sy-where {
+  font: 12px var(--mono);
+  color: var(--faint);
+}
+.sy-empty {
+  margin: 0 0 6px;
+  padding: 0 10px;
+  max-width: 70ch;
+}
+.sy-place + .sy-place {
+  margin-top: 14px;
+}
+.sy-place h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 2px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.sy-place h4.sy-folder,
+.sy-from {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+.sy-from {
+  font-size: 12px;
+  color: var(--faint);
+}
+.sy-row .au-main {
+  min-height: 46px;
+}
+/* Opening a saved session here: the folder it works in. */
+.sy-open {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 10px 14px 30px;
+}
+.sy-row[data-open] .sy-acts {
+  opacity: 1;
+}
+.sy-row[data-open] .sy-meta {
+  opacity: 0;
+}
+.sy-kind {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--raise);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dim);
+}
+/* What loads it, and on hover or focus, what can be done with it: the same place, so the
+   column stays aligned down the list. */
+.sy-side {
+  display: grid;
+  justify-items: end;
+  align-items: center;
+  flex: none;
+  min-width: 132px;
+}
+.sy-side > * {
+  grid-area: 1 / 1;
+}
+.sy-meta {
+  transition: opacity 140ms var(--ease-out);
+}
+.sy-row:has(.sy-acts):hover .sy-meta,
+.sy-row:has(.sy-acts):focus-within .sy-meta {
+  opacity: 0;
+}
+.sy-blocked {
+  font-size: 12px;
+  color: var(--wait-text);
+  cursor: help;
+}
+/* Actions show on the row the pointer or focus is on; touch screens always show them. */
+.sy-acts {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out);
+}
+.sy-row:hover .sy-acts,
+.sy-row:focus-within .sy-acts {
+  opacity: 1;
+}
+@media (hover: none) {
+  .sy-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .sy-acts,
+  .sy-row .sy-meta {
+    opacity: 1;
+  }
+}
+.sy-acts .fl-act {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.sy-acts .fl-act:hover:not(:disabled) {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .sy-connect {
+    padding: 20px 16px 18px;
+  }
+  .sy-field {
+    flex-direction: column;
+  }
+  .sy-field .sy-input {
+    flex: none;
+  }
+  .sy-field .btn {
+    justify-content: center;
+  }
+  .sy-ends {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 18px 16px 14px;
+  }
+  .sy-end-remote {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .sy-wire {
+    display: none;
+  }
+  .sy-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  .sy-state {
+    flex-basis: 100%;
+  }
+  .sy-now {
+    margin-left: auto;
+  }
+  .sy-problem {
+    margin: 0 16px 14px;
+  }
+  .sy-where {
+    display: none;
+  }
+  /* The name takes the row; what loads it and the actions go under it, both shown. */
+  .sy-row .au-main {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .sy-row .au-name {
+    flex: 1 1 100%;
+  }
+  .sy-side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 0 8px 30px;
+  }
+  .sy-row .sy-meta,
+  .sy-row:has(.sy-acts):hover .sy-meta,
+  .sy-row:has(.sy-acts):focus-within .sy-meta,
+  .sy-acts {
+    opacity: 1;
+  }
+  .sy-acts {
+    margin-left: -6px;
+  }
+  .sy-acts .fl-act {
+    padding: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sy-link[data-state='syncing'] .sy-wire-line,
+  .sy-link[data-state='syncing'] .sy-wire-icon svg {
+    animation: none;
+  }
+  .sy-now:hover:not(:disabled) svg {
+    transform: none;
+  }
+}
+
+/* ---------- First visit: a dialog over a sea of its own ---------- */
+
+.ob {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+.ob[open] {
+  display: grid;
+  place-items: center;
+}
+.ob::backdrop {
+  /* Flat, not blurred: a blur under an animated sea is redrawn with every frame. */
+  background: rgba(6, 12, 15, 0.86);
+  animation: ob-dim 600ms var(--ease-out) both;
+}
+.ob[data-leaving]::backdrop {
+  animation: ob-dim 480ms var(--ease-out) reverse both;
+}
+/* The sea: drawn once, risen and sunk with a transform, and slid one wave period on a loop, so
+   the compositor moves it and nothing is redrawn. */
+.sb {
+  --bg: rgba(5, 10, 13, 0.55);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.42;
+  pointer-events: none;
+  transform: translateY(100%);
+  transition: transform 1.3s var(--ease-out);
+}
+.sb[data-up] {
+  transform: none;
+}
+.sb-tile {
+  display: block;
+  animation: sb-drift 38s linear infinite;
+  will-change: transform;
+}
+@keyframes sb-drift {
+  to {
+    transform: translateX(-960px);
+  }
+}
+.ob-card {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin-bottom: 10vh;
+  animation: ob-card-in 640ms var(--ease-out) 260ms both;
+}
+.ob[data-leaving] .ob-card {
+  animation: ob-card-out 300ms var(--ease-out) both;
+}
+.ob-card .sy-connect {
+  padding: 30px 30px 20px;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 24px 60px rgba(2, 6, 9, 0.55);
+}
+.ob-skip {
+  align-self: flex-start;
+  margin: 14px 0 0 -6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--dim);
+  transition:
+    background 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+.ob-skip:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+@keyframes ob-dim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ob-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+    filter: blur(6px);
+  }
+}
+@keyframes ob-card-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    filter: blur(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb,
+  .sb-tile,
+  .ob::backdrop,
+  .ob-card,
+  .ob[data-leaving] .ob-card {
+    animation: none;
+  }
+}

@@ -3,6 +3,7 @@ import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage } from '@/components/Pages';
 import { LibraryView } from '@/components/LibraryView';
 import { NewChat } from '@/components/NewChat';
+import { Onboarding } from '@/components/Onboarding';
 import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
 import { TerminalDock } from '@/components/TerminalDock';
@@ -52,6 +53,19 @@ export default function Panel() {
     setDockPref(stored('orla.dock') !== 'off');
     setRail(stored('orla.side') === 'rail');
     setNotify(stored('orla.notify') === 'on' && typeof Notification !== 'undefined' && Notification.permission === 'granted');
+  }, []);
+
+  // First visit with no library: offer to bring one before anything else.
+  const [onboard, setOnboard] = useState(false);
+  useEffect(() => {
+    Promise.all([api.pref<boolean>('library-onboarded'), api.library()]).then(
+      ([seen, lib]) => setOnboard(!seen.value && lib.state === 'off' && lib.entries.length === 0),
+      () => {},
+    );
+  }, []);
+  const finishOnboard = useCallback(() => {
+    setOnboard(false);
+    void api.setPref('library-onboarded', true).catch(() => {});
   }, []);
 
   const { sessions, approvals, terminals, loaded } = overview;
@@ -149,7 +163,16 @@ export default function Panel() {
       );
       break;
     case 'library':
-      main = <LibraryView sessions={sessions} onBack={() => (route.session ? go({ view: 'session', session: route.session }) : home())} />;
+      main = (
+        <LibraryView
+          sessions={sessions}
+          onBack={() => (route.session ? go({ view: 'session', session: route.session }) : home())}
+          openSession={(id) => {
+            overview.refresh();
+            go({ view: 'session', session: id });
+          }}
+        />
+      );
       break;
     case 'new':
       main = (
@@ -272,6 +295,7 @@ export default function Panel() {
       <Toaster />
       <AskHost />
       <Arrival />
+      {onboard && <Onboarding done={finishOnboard} />}
     </div>
   );
 }
