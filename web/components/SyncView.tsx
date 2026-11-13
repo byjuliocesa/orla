@@ -273,6 +273,8 @@ export function Connect({
   const form = useRef<HTMLFormElement>(null);
   // The key only matters once the repository refused this machine.
   const [failed, setFailed] = useState(false);
+  // While a key is made or saved, connecting would race it.
+  const [keyBusy, setKeyBusy] = useState(false);
   // While connecting, nothing else on the page answers, so the clone or push is not cut short.
   useEffect(() => (busy && form.current ? freezeAround(form.current) : undefined), [busy]);
   const submit = async (e: React.FormEvent) => {
@@ -315,13 +317,13 @@ export function Connect({
           placeholder="git@github.com:you/library.git"
           spellCheck={false}
           autoComplete="off"
-          disabled={busy}
+          disabled={busy || keyBusy}
         />
-        <button type="submit" className="btn btn-primary" disabled={busy}>
+        <button type="submit" className="btn btn-primary" disabled={busy || keyBusy}>
           {busy ? 'Connecting…' : 'Connect'}
         </button>
       </div>
-      {failed && <KeyBox />}
+      {failed && <KeyBox onBusy={setKeyBusy} />}
       {children}
       </fieldset>
     </form>
@@ -332,11 +334,12 @@ export function Connect({
  * Shown once the repository refused this machine: generate a key for it, or save the owner's
  * own. Saved, the field locks until Change; then the owner connects again.
  */
-function KeyBox() {
+function KeyBox({ onBusy }: { onBusy: (on: boolean) => void }) {
   const [key, setKey] = useState<LibraryKey | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState<'generate' | 'save' | null>(null);
+  useEffect(() => onBusy(busy !== null), [busy, onBusy]);
   // Asked inline, not in a dialog: this box may itself sit in one.
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {
