@@ -254,7 +254,17 @@ function SessionRow({ x, openSession }: { x: SavedSession; openSession: (id: str
   );
 }
 
-function Connect({ connected }: { connected: (s: LibraryStatus) => void }) {
+export function Connect({
+  connected,
+  title = 'Sync your library',
+  lead = 'With any git repository, using this machine’s git access.',
+  children,
+}: {
+  connected: (s: LibraryStatus) => void;
+  title?: string;
+  lead?: string;
+  children?: React.ReactNode;
+}) {
   const [remote, setRemote] = useState('');
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -280,8 +290,8 @@ function Connect({ connected }: { connected: (s: LibraryStatus) => void }) {
   return (
     <form className="sy-connect" onSubmit={(e) => void submit(e)} noValidate>
       <div className="sy-intro">
-        <h2>Sync your library</h2>
-        <p>With any git repository, using this machine’s git access.</p>
+        <h2>{title}</h2>
+        <p>{lead}</p>
       </div>
       <label className="sy-label" htmlFor="sy-remote">
         Repository address
@@ -302,6 +312,7 @@ function Connect({ connected }: { connected: (s: LibraryStatus) => void }) {
           {busy ? 'Connecting…' : 'Connect'}
         </button>
       </div>
+      {children}
     </form>
   );
 }

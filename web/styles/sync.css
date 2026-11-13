@@ -451,6 +451,12 @@
   .sy-field {
     flex-direction: column;
   }
+  .sy-field .sy-input {
+    flex: none;
+  }
+  .sy-field .btn {
+    justify-content: center;
+  }
   .sy-ends {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -519,4 +525,34 @@
   .sy-now:hover:not(:disabled) svg {
     transform: none;
   }
+}
+
+/* ---------- First visit ---------- */
+
+.ob-wrap {
+  display: grid;
+  place-items: center;
+}
+.ob-col {
+  width: 100%;
+  max-width: 620px;
+  margin-bottom: 8vh;
+}
+.ob-col .sy-connect {
+  padding: 30px 30px 20px;
+}
+.ob-skip {
+  align-self: flex-start;
+  margin: 14px 0 0 -6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--dim);
+  transition:
+    background 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+.ob-skip:hover {
+  background: var(--hover);
+  color: var(--text);
 }

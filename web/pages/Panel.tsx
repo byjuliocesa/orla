@@ -3,6 +3,7 @@ import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage } from '@/components/Pages';
 import { LibraryView } from '@/components/LibraryView';
 import { NewChat } from '@/components/NewChat';
+import { Onboarding } from '@/components/Onboarding';
 import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
 import { TerminalDock } from '@/components/TerminalDock';
@@ -52,6 +53,19 @@ export default function Panel() {
     setDockPref(stored('orla.dock') !== 'off');
     setRail(stored('orla.side') === 'rail');
     setNotify(stored('orla.notify') === 'on' && typeof Notification !== 'undefined' && Notification.permission === 'granted');
+  }, []);
+
+  // First visit with no library: offer to bring one before anything else.
+  const [onboard, setOnboard] = useState(false);
+  useEffect(() => {
+    Promise.all([api.pref<boolean>('library-onboarded'), api.library()]).then(
+      ([seen, lib]) => setOnboard(!seen.value && lib.state === 'off' && lib.entries.length === 0),
+      () => {},
+    );
+  }, []);
+  const finishOnboard = useCallback(() => {
+    setOnboard(false);
+    void api.setPref('library-onboarded', true).catch(() => {});
   }, []);
 
   const { sessions, approvals, terminals, loaded } = overview;
@@ -223,8 +237,10 @@ export default function Panel() {
       );
   }
 
+  if (onboard) main = <Onboarding done={finishOnboard} />;
+
   // The Library is a page of its own: no terminals beside it.
-  const showDock = dockBeside && route.view !== 'library';
+  const showDock = dockBeside && route.view !== 'library' && !onboard;
 
   // Remember the folder of the session in view, for the next new one.
   const remembered = session?.worktree?.repo ?? session?.cwd;
@@ -235,7 +251,7 @@ export default function Panel() {
   return (
     <div
       className="app"
-      data-view={route.view}
+      data-view={onboard ? 'onboarding' : route.view}
       data-dock={showDock ? 'on' : 'off'}
       data-side={rail ? 'rail' : 'open'}
       data-resizing={resizing || undefined}
@@ -252,7 +268,7 @@ export default function Panel() {
         actions={actions}
       />
       <main className="main">{main}</main>
-      {dockBeside && route.view === 'session' && session ? (
+      {!onboard && dockBeside && route.view === 'session' && session ? (
         <RightColumn
           session={session}
           terminals={terminals}
