@@ -152,19 +152,53 @@ func TestRedact(t *testing.T) {
 	}
 }
 
-func TestMachineKeyIsMadeOnceAndUsedBySSH(t *testing.T) {
+func TestLibraryKeyIsMadeOnceOrTheOwnersOwn(t *testing.T) {
+	ctx := context.Background()
 	m := machine(t)
 	m.Keys = filepath.Join(m.Home, "keys")
-	a, err := m.PublicKey(context.Background())
+	a, err := m.PublicKey(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := m.PublicKey(context.Background())
-	if !strings.HasPrefix(a, "ssh-ed25519 ") || a != b {
-		t.Fatalf("keys %q then %q", a, b)
+	b, _ := m.PublicKey(ctx)
+	if !strings.HasPrefix(a.Public, "ssh-ed25519 ") || a != b || a.Own {
+		t.Fatalf("keys %+v then %+v", a, b)
 	}
 	if c := m.sshCommand(); !strings.Contains(c, "-i '"+m.keyPath()+"'") || !strings.Contains(c, "StrictHostKeyChecking=accept-new") {
 		t.Fatalf("ssh command: %s", c)
+	}
+
+	// The owner's own key replaces it; its public half is derived, never sent in.
+	mine := filepath.Join(t.TempDir(), "mine")
+	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "me", "-f", mine).CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	priv, _ := os.ReadFile(mine)
+	pub, _ := os.ReadFile(mine + ".pub")
+	got, err := m.SetKey(ctx, string(priv))
+	if err != nil || !got.Own || got.Public != strings.TrimSpace(string(pub)) {
+		t.Fatalf("own key: %+v %v", got, err)
+	}
+	if again, _ := m.PublicKey(ctx); again != got {
+		t.Fatalf("after setting: %+v", again)
+	}
+	if _, err := m.SetKey(ctx, "not a key"); err == nil {
+		t.Fatal("text that is no key was taken")
+	}
+	locked := filepath.Join(t.TempDir(), "locked")
+	exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "secret", "-f", locked).Run()
+	lb, _ := os.ReadFile(locked)
+	if _, err := m.SetKey(ctx, string(lb)); err == nil || !strings.Contains(err.Error(), "passphrase") {
+		t.Fatalf("a key with a passphrase: %v", err)
+	}
+
+	// Removed, the next one asked for is made anew.
+	if err := m.RemoveKey(); err != nil {
+		t.Fatal(err)
+	}
+	fresh, _ := m.PublicKey(ctx)
+	if fresh.Own || fresh.Public == got.Public {
+		t.Fatalf("after removing: %+v", fresh)
 	}
 }
 

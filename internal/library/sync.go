@@ -416,30 +416,6 @@ func (m *Manager) sshCommand() string {
 	return c
 }
 
-func (m *Manager) keyPath() string { return filepath.Join(m.Keys, "id_ed25519") }
-
-// PublicKey answers this machine's library key, making it the first time: the key the owner
-// adds to the repository (on GitHub, as a deploy key with write access) to let this machine in.
-func (m *Manager) PublicKey(ctx context.Context) (string, error) {
-	if m.Keys == "" {
-		return "", errors.New("this Orla keeps no key of its own")
-	}
-	pub := m.keyPath() + ".pub"
-	if b, err := os.ReadFile(pub); err == nil {
-		return strings.TrimSpace(string(b)), nil
-	}
-	if err := os.MkdirAll(m.Keys, 0o700); err != nil {
-		return "", err
-	}
-	host, _ := os.Hostname()
-	cmd := exec.CommandContext(ctx, "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "orla@"+host, "-f", m.keyPath())
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))
-	}
-	b, err := os.ReadFile(pub)
-	return strings.TrimSpace(string(b)), err
-}
-
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
 // explain turns git's stderr into one sentence the owner can act on.

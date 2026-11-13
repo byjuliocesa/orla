@@ -40,7 +40,7 @@ func (s *Server) libraryStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-// libraryKey answers this machine's public key for the library, making it the first time.
+// libraryKey answers the library's public SSH key, making one the first time.
 func (s *Server) libraryKey(w http.ResponseWriter, r *http.Request) {
 	if s.shelf == nil {
 		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
@@ -51,7 +51,41 @@ func (s *Server) libraryKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"key": key})
+	writeJSON(w, http.StatusOK, key)
+}
+
+// setLibraryKey takes {"private": "..."}: the owner's own key, in place of the library's.
+func (s *Server) setLibraryKey(w http.ResponseWriter, r *http.Request) {
+	if s.shelf == nil {
+		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
+		return
+	}
+	var body struct {
+		Private string `json:"private"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "Send the key as {\"private\": \"...\"}.")
+		return
+	}
+	key, err := s.shelf.SetKey(r.Context(), body.Private)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, key)
+}
+
+// removeLibraryKey deletes the library's key; a new one is made when next asked for.
+func (s *Server) removeLibraryKey(w http.ResponseWriter, r *http.Request) {
+	if s.shelf == nil {
+		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
+		return
+	}
+	if err := s.shelf.RemoveKey(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.libraryKey(w, r)
 }
 
 // librarySettings takes {"auto": bool}: whether the library syncs on its own.
