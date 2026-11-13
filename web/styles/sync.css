@@ -89,6 +89,9 @@
   height: 26px;
   font-size: 12px;
 }
+.sy-key-saved {
+  width: 100%;
+}
 .sy-key-edit:disabled {
   opacity: 0.7;
   resize: none;

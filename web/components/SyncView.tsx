@@ -438,7 +438,7 @@ function KeyBox({ onBusy }: { onBusy: (on: boolean) => void }) {
             {removeBtn}
           </span>
         </div>
-        <textarea className="sy-input sy-key-edit" value="" placeholder="Saved on this machine. Connect again." aria-label="Private key, saved" rows={2} disabled />
+        <input className="sy-input sy-key-saved" value="" placeholder="Saved on this machine" aria-label="Private key, saved" disabled />
       </div>
     );
   }
