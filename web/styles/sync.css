@@ -559,20 +559,30 @@
 .ob[data-leaving]::backdrop {
   animation: ob-dim 480ms var(--ease-out) reverse both;
 }
-/* The sea rises over the whole screen. It draws its water in the page ground; here a darker,
-   see-through one, so the panel still shows faintly beneath. */
-.ob-sea {
+/* The sea: drawn once, risen and sunk with a transform, and slid one wave period on a loop, so
+   the compositor moves it and nothing is redrawn. */
+.sb {
   --bg: rgba(5, 10, 13, 0.55);
   position: absolute;
   inset: 0;
+  overflow: hidden;
   opacity: 0.42;
   pointer-events: none;
+  transform: translateY(100%);
+  transition: transform 1.3s var(--ease-out);
 }
-.ob-sea .sea,
-.ob-sea canvas {
-  width: 100%;
-  height: 100%;
+.sb[data-up] {
+  transform: none;
+}
+.sb-tile {
   display: block;
+  animation: sb-drift 38s linear infinite;
+  will-change: transform;
+}
+@keyframes sb-drift {
+  to {
+    transform: translateX(-960px);
+  }
 }
 .ob-card {
   position: relative;
@@ -626,6 +636,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .sb,
+  .sb-tile,
   .ob::backdrop,
   .ob-card,
   .ob[data-leaving] .ob-card {

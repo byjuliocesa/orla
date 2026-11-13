@@ -1,6 +1,6 @@
 import '@/styles/sync.css';
 import { useEffect, useRef, useState } from 'react';
-import { Sea, type SeaState } from './Sea';
+import { SeaBackdrop } from './SeaBackdrop';
 import { Connect } from './SyncView';
 import { Toaster } from './Toast';
 
@@ -15,14 +15,14 @@ const SETTLE = 250;
  */
 export function Onboarding({ done }: { done: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [sea, setSea] = useState<SeaState>('recede');
+  const [sea, setSea] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     const wait = document.documentElement.hasAttribute('data-arriving') ? AFTER_ARRIVAL : SETTLE;
     const open = setTimeout(() => {
       ref.current?.showModal();
-      setSea('idle'); // the water rises from below the screen to its rest
+      setSea(true); // the water rises from below the screen
     }, wait);
     return () => clearTimeout(open);
   }, []);
@@ -30,7 +30,7 @@ export function Onboarding({ done }: { done: () => void }) {
   const close = () => {
     if (leaving) return;
     setLeaving(true);
-    setSea('recede');
+    setSea(false);
     setTimeout(() => {
       ref.current?.close();
       done();
@@ -49,9 +49,7 @@ export function Onboarding({ done }: { done: () => void }) {
         if (!ref.current?.querySelector('[aria-busy="true"]')) close();
       }}
     >
-      <div className="ob-sea" aria-hidden="true">
-        <Sea state={sea} rest={0.03} swell={0.8} wavelength={0.8} fps={24} charSize={18} density={1} />
-      </div>
+      <SeaBackdrop up={sea} />
       <div className="ob-card">
         <Connect connected={close} title="Bring your library" lead="Paste the git repository with your skills, flows and sessions. An empty one starts a new library." titleId="ob-title">
           <button type="button" className="ob-skip" onClick={close}>
