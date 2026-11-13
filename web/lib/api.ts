@@ -1,4 +1,4 @@
-import type { Automation, AutomationLine, ChangedFile, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
+import type { Automation, AutomationLine, ChangedFile, LibraryStatus, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -130,6 +130,10 @@ export const api = {
   deleteAutomation: (name: string) => call<{ ok: boolean }>('DELETE', `/v1/automations/${encodeURIComponent(name)}`),
   archivedFlows: () => call<{ flows: Flow[]; steps: { flow: string; step: FlowStep; path: string }[] }>('GET', '/v1/flows/archived'),
   skillDoc: (name: string, cwd: string) => call<{ name: string; path: string; body: string }>('GET', `/v1/skill-doc?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(cwd)}`),
+  library: () => call<LibraryStatus>('GET', '/v1/library'),
+  libraryAuto: (auto: boolean) => call<LibraryStatus>('PATCH', '/v1/library', { auto }),
+  libraryAction: (action: 'connect' | 'sync' | 'disconnect' | 'adopt' | 'move', body?: { remote?: string; from?: string; name?: string; to?: string }) =>
+    call<LibraryStatus>('POST', `/v1/library/${action}`, body),
   pref: <T,>(key: string) => call<{ value: T | null }>('GET', `/v1/prefs/${key}`),
   setPref: (key: string, value: unknown) => call<{ value: unknown }>('PUT', `/v1/prefs/${key}`, value),
   skills: (cwd: string) => call<{ skills: { name: string; description?: string; scope: string; tokens: number; flow?: boolean; orla?: boolean }[] }>('GET', `/v1/skills?cwd=${encodeURIComponent(cwd)}`),

@@ -5,10 +5,12 @@ import { layout } from '@/lib/flowlayout';
 import type { Flow, Session } from '@/lib/types';
 import { AutomationsView } from './AutomationsView';
 import { ask } from './ConfirmDialog';
-import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, FlowIcon, Trash } from './Icons';
+import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, FlowIcon, SyncIcon, Trash } from './Icons';
+import { SyncView, syncWords, useLibrary } from './SyncView';
+import { useNow } from '@/lib/hooks';
 import { toast } from './Toast';
 
-type Tab = 'flows' | 'automations';
+type Tab = 'flows' | 'automations' | 'sync';
 const TAB_KEY = 'orla.library.tab';
 
 /**
@@ -18,7 +20,8 @@ const TAB_KEY = 'orla.library.tab';
 export function LibraryView({ sessions, onBack }: { sessions: Session[]; onBack: () => void }) {
   const [tab, setTabState] = useState<Tab>(() => {
     try {
-      return localStorage.getItem(TAB_KEY) === 'automations' ? 'automations' : 'flows';
+      const t = localStorage.getItem(TAB_KEY);
+      return t === 'automations' || t === 'sync' ? t : 'flows';
     } catch {
       return 'flows';
     }
@@ -28,6 +31,14 @@ export function LibraryView({ sessions, onBack }: { sessions: Session[]; onBack:
     try {
       localStorage.setItem(TAB_KEY, t);
     } catch {}
+  };
+  const [lib, setLib, reloadLib] = useLibrary();
+  const now = useNow(15_000);
+  const order: Tab[] = ['flows', 'automations', 'sync'];
+  const [from, setFrom] = useState<'left' | 'right'>('left');
+  const pick = (t: Tab) => {
+    setFrom(order.indexOf(t) >= order.indexOf(tab) ? 'right' : 'left');
+    setTab(t);
   };
   return (
     <div className="lib">
@@ -40,19 +51,35 @@ export function LibraryView({ sessions, onBack }: { sessions: Session[]; onBack:
         </div>
         <div className="head-main">
           <div className="head-tabs" role="group" aria-label="Show">
-            <button className="head-tab" aria-pressed={tab === 'flows'} onClick={() => setTab('flows')}>
+            <button className="head-tab" aria-pressed={tab === 'flows'} onClick={() => pick('flows')}>
               <FlowIcon />
               Flows
             </button>
-            <button className="head-tab" aria-pressed={tab === 'automations'} onClick={() => setTab('automations')}>
+            <button className="head-tab" aria-pressed={tab === 'automations'} onClick={() => pick('automations')}>
               <Bolt />
               Automations
             </button>
+            <button className="head-tab" aria-pressed={tab === 'sync'} onClick={() => pick('sync')}>
+              <SyncIcon />
+              Sync
+            </button>
           </div>
+          {lib && tab !== 'sync' && (
+            <button type="button" className="sy-chip" data-state={lib.state} onClick={() => pick('sync')}>
+              <span className="sy-dot" aria-hidden="true" />
+              {syncWords(lib, now)}
+            </button>
+          )}
         </div>
       </header>
-      <div className="tab-stage" key={tab} data-from={tab === 'flows' ? 'left' : 'right'}>
-        {tab === 'flows' ? <FlowLibrary sessions={sessions} /> : <AutomationsView sessions={sessions} />}
+      <div className="tab-stage" key={tab} data-from={from}>
+        {tab === 'flows' ? (
+          <FlowLibrary sessions={sessions} />
+        ) : tab === 'automations' ? (
+          <AutomationsView sessions={sessions} />
+        ) : (
+          <SyncView st={lib} setSt={setLib} reload={reloadLib} />
+        )}
       </div>
     </div>
   );

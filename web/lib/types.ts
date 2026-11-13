@@ -203,3 +203,38 @@ export interface AutomationLine {
   stream: 'out' | 'err' | 'orla';
   text: string;
 }
+
+/** One skill, flow or automation in the library, or one an agent loads from outside it. */
+export interface LibraryEntry {
+  name: string;
+  description?: string;
+  kind: 'skill' | 'flow' | 'automation' | 'system';
+  /** shared, an agent's name, or automations. */
+  place: string;
+  linked?: string[];
+  /** Agents where a folder of the same name keeps it from being linked. */
+  blocked?: string[];
+}
+
+export interface LibraryAgent {
+  name: string;
+  title: string;
+  dir: string;
+  present: boolean;
+}
+
+/** The library and how it stands with its repository. */
+export interface LibraryStatus {
+  dir: string;
+  remote: string;
+  branch?: string;
+  auto: boolean;
+  state: 'off' | 'synced' | 'pending' | 'syncing' | 'error' | 'conflict';
+  error?: string;
+  conflicts?: string[];
+  last_sync?: string;
+  pending: number;
+  entries: LibraryEntry[];
+  outside: LibraryEntry[];
+  agents: LibraryAgent[];
+}

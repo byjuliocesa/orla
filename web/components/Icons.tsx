@@ -316,3 +316,12 @@ export const Books = () => (
     <path d="m10.6 3.6 2.6-.7 2 9.3-2.6.7z" />
   </Icon>
 );
+
+export const SyncIcon = () => (
+  <Icon className="icon i-sync">
+    <path d="M13 6.5A5.2 5.2 0 0 0 3.6 5" />
+    <path d="M3.4 2.6V5.2H6" />
+    <path d="M3 9.5A5.2 5.2 0 0 0 12.4 11" />
+    <path d="M12.6 13.4V10.8H10" />
+  </Icon>
+);
