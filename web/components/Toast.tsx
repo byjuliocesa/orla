@@ -1,6 +1,7 @@
 import '@fontsource/lilex/400.css';
 import '@fontsource/lilex/700.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check, Copy, Cross } from './Icons';
 
 type Tone = 'error' | 'info' | 'ok';
 interface Line {
@@ -42,6 +43,14 @@ export function Toaster({ name = 'orla.log' }: { name?: string }) {
   }, []);
 
   const clear = useCallback(() => setLines([]), []);
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const text = lines.map((l) => `${clock(l.at)} ${LEVEL[l.tone]} ${l.text}`).join('\n');
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }, () => {});
+  };
   const last = lines[lines.length - 1];
 
   // One animation is both the bar and the clock, so pausing one pauses the other. A new line
@@ -85,9 +94,18 @@ export function Toaster({ name = 'orla.log' }: { name?: string }) {
         >
           <div className="toast-head">
             <span>{name}</span>
-            <button type="button" className="toast-clear" onClick={clear}>
-              Clear
-            </button>
+            <span className="toast-acts">
+              <button type="button" className="toast-clear" onClick={copy} aria-label={copied ? 'Copied' : 'Copy the log'}>
+                {copied ? <Check /> : <Copy />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              <button type="button" className="toast-clear" onClick={clear}>
+                Clear
+              </button>
+              <button type="button" className="toast-clear toast-close" onClick={clear} aria-label="Close">
+                <Cross />
+              </button>
+            </span>
           </div>
           <ol>
             {lines.map((l) => (

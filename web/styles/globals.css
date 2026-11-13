@@ -2118,14 +2118,37 @@ kbd {
   font-size: 12px;
 }
 
+.toast-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* Two classes, to outweigh the login's own button styles. */
 .toaster .toast-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: auto;
   padding: 4px 8px;
   border-radius: 4px;
   background: transparent;
   color: var(--toast-dim);
   font: 500 12px/1 var(--lilex);
+}
+
+.toaster .toast-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+.toaster .toast-close {
+  padding: 4px 6px;
+}
+
+.toaster .toast-close svg {
+  width: 10px;
+  height: 10px;
 }
 
 .toaster .toast-clear:hover {
