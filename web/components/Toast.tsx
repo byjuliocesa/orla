@@ -1,43 +1,106 @@
-import { useEffect, useState } from 'react';
-import { Check, Cross } from './Icons';
+import '@fontsource/lilex/400.css';
+import '@fontsource/lilex/700.css';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Tone = 'error' | 'info' | 'ok';
-interface Note {
+interface Line {
   id: number;
   text: string;
   tone: Tone;
+  at: Date;
 }
 
-/** Shows a short note at the corner of the screen, from anywhere. Errors stay a little longer. */
+const LEVEL: Record<Tone, string> = { error: 'ERR', ok: 'OK', info: 'INFO' };
+// An error waits longer to be read; the log hides this long after its last line.
+const LIFETIME: Record<Tone, number> = { error: 8000, ok: 4000, info: 4000 };
+
+const clock = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+/** Writes a line to the log in the corner of the screen, from anywhere. */
 export function toast(text: string, tone: Tone = 'error') {
-  dispatchEvent(new CustomEvent<Omit<Note, 'id'>>('orla-toast', { detail: { text, tone } }));
+  dispatchEvent(new CustomEvent<Omit<Line, 'id' | 'at'>>('orla-toast', { detail: { text, tone } }));
 }
 
-/** Where the notes appear; mounted once by the panel. */
-export function Toaster() {
-  const [notes, setNotes] = useState<Note[]>([]);
+/**
+ * Orla's notes, as a short log: time, level, message, newest last. It hides itself a while after
+ * the last line; the bar underneath is that countdown, and hovering or focusing it pauses it.
+ */
+export function Toaster({ name = 'orla.log' }: { name?: string }) {
+  const [lines, setLines] = useState<Line[]>([]);
+  const timer = useRef<HTMLSpanElement>(null);
+  const countdown = useRef<Animation | null>(null);
+
   useEffect(() => {
     let n = 0;
     const on = (e: Event) => {
-      const d = (e as CustomEvent<Omit<Note, 'id'>>).detail;
+      const d = (e as CustomEvent<Omit<Line, 'id' | 'at'>>).detail;
       const id = ++n;
-      setNotes((list) => [...list.filter((x) => x.text !== d.text), { id, ...d }].slice(-4));
-      setTimeout(() => setNotes((list) => list.filter((x) => x.id !== id)), d.tone === 'error' ? 6000 : 3000);
+      setLines((list) => [...list.filter((x) => x.text !== d.text), { id, at: new Date(), ...d }].slice(-3));
     };
     addEventListener('orla-toast', on);
     return () => removeEventListener('orla-toast', on);
   }, []);
+
+  const clear = useCallback(() => setLines([]), []);
+  const last = lines[lines.length - 1];
+
+  // One animation is both the bar and the clock, so pausing one pauses the other. A new line
+  // starts it over.
+  useEffect(() => {
+    const el = timer.current;
+    if (!last || !el) return;
+    const anim = el.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }], { duration: LIFETIME[last.tone], fill: 'forwards' });
+    countdown.current = anim;
+    anim.finished.then(clear, () => {});
+    return () => anim.cancel();
+  }, [last, clear]);
+
+  useEffect(() => {
+    if (!last) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('dialog[open]') && clear();
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [last, clear]);
+
+  const hold = () => countdown.current?.pause();
+  const release = (e: React.FocusEvent | React.MouseEvent) => {
+    const box = e.currentTarget as HTMLElement;
+    if (box.matches(':hover') || box.contains(document.activeElement)) return;
+    countdown.current?.play();
+  };
+
   return (
-    <div className="toaster" role="region" aria-label="Notifications">
-      {notes.map((t) => (
-        <div key={t.id} className="toast" data-tone={t.tone} role={t.tone === 'error' ? 'alert' : 'status'}>
-          {t.tone === 'error' ? <Cross /> : <Check />}
-          <span>{t.text}</span>
-          <button type="button" className="toast-x" onClick={() => setNotes((l) => l.filter((x) => x.id !== t.id))} aria-label="Dismiss">
-            <Cross />
-          </button>
+    <div className="toaster">
+      {last && (
+        <div
+          className="toast"
+          data-tone={last.tone}
+          role="log"
+          aria-live={last.tone === 'error' ? 'assertive' : 'polite'}
+          aria-label="Notifications"
+          onMouseEnter={hold}
+          onMouseLeave={release}
+          onFocus={hold}
+          onBlur={release}
+        >
+          <div className="toast-head">
+            <span>{name}</span>
+            <button type="button" className="toast-clear" onClick={clear}>
+              Clear
+            </button>
+          </div>
+          <ol>
+            {lines.map((l) => (
+              <li key={l.id} data-latest={l === last} data-tone={l.tone}>
+                <time>{clock(l.at)}</time>
+                <span className="toast-level">{LEVEL[l.tone]}</span>
+                <span className="toast-text">{l.text}</span>
+              </li>
+            ))}
+          </ol>
+          <span ref={timer} className="toast-timer" aria-hidden="true" />
         </div>
-      ))}
+      )}
     </div>
   );
 }

@@ -4,6 +4,15 @@
    green is success; nothing else is coloured. */
 
 :root {
+  /* The notes log (Toast), terminal-like on every screen; the login retints it per theme. */
+  --lilex: 'Lilex', var(--mono);
+  --toast-ground: #071014;
+  --toast-head: #0c181e;
+  --toast-hover: rgba(255, 255, 255, 0.07);
+  --toast-edge: #243a44;
+  --toast-text: #dde8eb;
+  --toast-dim: #94a8af;
+  --toast-fail: #ffa395;
   color-scheme: dark;
 
   --bg: #091116;
@@ -1786,10 +1795,9 @@ kbd {
   --night-edge-hover: #6e8690;
   --night-fail: #ffa395;
   --placeholder: #8197a0;
-  --toast-ground: #071014;
-  --toast-head: #0c181e;
-  --toast-hover: rgba(255, 255, 255, 0.07);
-  --toast-edge: #243a44;
+  --toast-text: var(--night-text);
+  --toast-dim: var(--night-dim);
+  --toast-fail: var(--night-fail);
   --field: rgba(14, 27, 33, 0.82);
   --badge-ground: rgba(9, 17, 22, 0.72);
   --badge-edge: #2c4550;
@@ -2072,19 +2080,29 @@ kbd {
   height: 13px;
 }
 
-/* Failed attempts, as a short log in the bottom right corner. */
-.toast {
+/* Orla's notes, as a short log in the bottom right corner: the login's failed attempts and the
+   panel's errors and confirmations alike. */
+.toaster {
   position: fixed;
-  z-index: 20;
-  right: max(20px, env(safe-area-inset-right, 0px));
+  z-index: 400;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: min(460px, calc(100% - 32px));
+  pointer-events: none;
+}
+.login .toaster {
   bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-  width: min(460px, calc(100% - 40px));
+}
+
+.toast {
   overflow: hidden;
   border-radius: 6px;
   border: 1px solid var(--toast-edge);
   background: var(--toast-ground);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  color: var(--toast-dim);
   font: 400 12.5px/1.6 var(--lilex);
+  pointer-events: auto;
   animation: toast-in 0.35s var(--ease-out);
 }
 
@@ -2096,8 +2114,23 @@ kbd {
   padding: 4px 6px 4px 12px;
   border-bottom: 1px solid var(--toast-edge);
   background: var(--toast-head);
-  color: var(--night-dim);
+  color: var(--toast-dim);
   font-size: 12px;
+}
+
+/* Two classes, to outweigh the login's own button styles. */
+.toaster .toast-clear {
+  height: auto;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--toast-dim);
+  font: 500 12px/1 var(--lilex);
+}
+
+.toaster .toast-clear:hover {
+  background: var(--toast-hover);
+  color: var(--toast-text);
 }
 
 .toast ol {
@@ -2113,48 +2146,46 @@ kbd {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   gap: 0 10px;
-  color: var(--night-dim);
+  color: var(--toast-dim);
   animation: toast-line 0.3s var(--ease-out);
 }
 
 .toast li[data-latest='true'] {
-  color: var(--night-text);
+  color: var(--toast-text);
 }
 
 .toast time {
-  color: var(--night-dim);
+  color: var(--toast-dim);
   font-variant-numeric: tabular-nums;
 }
 
 .toast-level {
-  color: var(--night-fail);
   font-weight: 700;
+  color: var(--toast-dim);
+}
+
+.toast li[data-tone='error'] .toast-level {
+  color: var(--toast-fail);
+}
+
+.toast li[data-tone='ok'] .toast-level {
+  color: var(--ok);
 }
 
 .toast li:not([data-latest='true']) .toast-level {
   opacity: 0.55;
 }
 
-.login .toast-clear {
-  height: auto;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--night-dim);
-  font: 500 12px/1 var(--lilex);
-}
-
-.login .toast-clear:hover:not(:disabled) {
-  background: var(--toast-hover);
-  color: var(--night-text);
-}
-
 .toast-timer {
   display: block;
   height: 2px;
-  background: var(--night-fail);
+  background: var(--toast-dim);
   opacity: 0.7;
   transform-origin: left;
+}
+
+.toast[data-tone='error'] .toast-timer {
+  background: var(--toast-fail);
 }
 
 @keyframes toast-in {
@@ -2170,12 +2201,25 @@ kbd {
   }
 }
 
+@media (max-width: 860px) {
+  .toaster:not(.login .toaster) {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (max-width: 420px) {
   .toast li {
     grid-template-columns: auto minmax(0, 1fr);
   }
   .toast-text {
     grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast li {
+    animation: none;
   }
 }
 

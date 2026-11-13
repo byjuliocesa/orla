@@ -1,18 +1,22 @@
 import '@fontsource/lilex/400.css';
 import '@fontsource/lilex/500.css';
 import '@fontsource/lilex/700.css';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, Unauthorized } from '@/lib/api';
 import { ARRIVAL_KEY } from '@/components/Arrival';
 import { Lockup } from '@/components/Logo';
 import { RepoBadge } from '@/components/RepoBadge';
 import { Sea, type SeaState } from '@/components/Sea';
-import { LoginToast, type LoginError } from '@/components/LoginToast';
+import { toast, Toaster } from '@/components/Toast';
+
+const FAILED = {
+  token: 'That is not this server’s token. Copy it again from the token file.',
+  down: 'Orla did not answer. Check that it is running and try again.',
+};
 
 export default function Login() {
   const [token, setToken] = useState('');
   const [state, setState] = useState<SeaState>('idle');
-  const [error, setError] = useState<LoginError | null>(null);
   const [host, setHost] = useState('');
   const [theme, setTheme] = useState('blue');
   const form = useRef<HTMLFormElement>(null);
@@ -26,8 +30,8 @@ export default function Login() {
   }, []);
   const busy = state === 'busy' || state === 'ok';
 
-  const fail = (kind: LoginError['kind']) => {
-    setError({ id: Date.now(), kind, at: new Date() });
+  const fail = (kind: keyof typeof FAILED) => {
+    toast(FAILED[kind]);
     setState('error');
   };
 
@@ -36,7 +40,6 @@ export default function Login() {
     setState('busy');
     try {
       await api.login(token.trim());
-      setError(null);
       setState('ok');
       // The tide covers the screen, then the panel opens under the same water (see Arrival).
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -51,15 +54,6 @@ export default function Login() {
       fail(err instanceof Unauthorized ? 'token' : 'down');
     }
   };
-
-  const dismiss = useCallback(() => setError(null), []);
-
-  useEffect(() => {
-    if (!error) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismiss();
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  }, [error, dismiss]);
 
   return (
     <main className="login" data-state={state} data-theme={theme}>
@@ -96,7 +90,7 @@ export default function Login() {
         </form>
       </div>
 
-      <LoginToast error={error} onDismiss={dismiss} />
+      <Toaster name="login.log" />
 
       <footer className="login-foot">
         <RepoBadge />
