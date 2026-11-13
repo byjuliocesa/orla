@@ -527,19 +527,65 @@
   }
 }
 
-/* ---------- First visit ---------- */
+/* ---------- First visit: a dialog over a sea of its own ---------- */
 
-.ob-wrap {
+.ob {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+.ob[open] {
   display: grid;
   place-items: center;
 }
-.ob-col {
-  width: 100%;
-  max-width: 620px;
-  margin-bottom: 8vh;
+.ob::backdrop {
+  background: rgba(6, 12, 15, 0.7);
+  backdrop-filter: blur(3px) grayscale(0.6);
+  animation: ob-dim 600ms var(--ease-out) both;
 }
-.ob-col .sy-connect {
+.ob[data-leaving]::backdrop {
+  animation: ob-dim 480ms var(--ease-out) reverse both;
+}
+/* The sea draws its water in the page ground; here a darker, see-through one, so the panel
+   still shows faintly beneath. */
+.ob-sea {
+  --bg: rgba(5, 10, 13, 0.55);
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.ob-sea .sea,
+.ob-sea canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ob-card {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin-bottom: 10vh;
+  animation: ob-card-in 640ms var(--ease-out) 260ms both;
+}
+.ob[data-leaving] .ob-card {
+  animation: ob-card-out 300ms var(--ease-out) both;
+}
+.ob-card .sy-connect {
   padding: 30px 30px 20px;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 24px 60px rgba(2, 6, 9, 0.55);
 }
 .ob-skip {
   align-self: flex-start;
@@ -555,4 +601,30 @@
 .ob-skip:hover {
   background: var(--hover);
   color: var(--text);
+}
+@keyframes ob-dim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ob-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+    filter: blur(6px);
+  }
+}
+@keyframes ob-card-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    filter: blur(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ob::backdrop,
+  .ob-card,
+  .ob[data-leaving] .ob-card {
+    animation: none;
+  }
 }

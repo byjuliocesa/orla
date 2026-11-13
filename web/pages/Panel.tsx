@@ -237,10 +237,8 @@ export default function Panel() {
       );
   }
 
-  if (onboard) main = <Onboarding done={finishOnboard} />;
-
   // The Library is a page of its own: no terminals beside it.
-  const showDock = dockBeside && route.view !== 'library' && !onboard;
+  const showDock = dockBeside && route.view !== 'library';
 
   // Remember the folder of the session in view, for the next new one.
   const remembered = session?.worktree?.repo ?? session?.cwd;
@@ -251,7 +249,7 @@ export default function Panel() {
   return (
     <div
       className="app"
-      data-view={onboard ? 'onboarding' : route.view}
+      data-view={route.view}
       data-dock={showDock ? 'on' : 'off'}
       data-side={rail ? 'rail' : 'open'}
       data-resizing={resizing || undefined}
@@ -268,7 +266,7 @@ export default function Panel() {
         actions={actions}
       />
       <main className="main">{main}</main>
-      {!onboard && dockBeside && route.view === 'session' && session ? (
+      {dockBeside && route.view === 'session' && session ? (
         <RightColumn
           session={session}
           terminals={terminals}
@@ -297,6 +295,7 @@ export default function Panel() {
       <Toaster />
       <AskHost />
       <Arrival />
+      {onboard && <Onboarding done={finishOnboard} />}
     </div>
   );
 }

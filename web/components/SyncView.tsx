@@ -259,11 +259,13 @@ export function Connect({
   title = 'Sync your library',
   lead = 'With any git repository, using this machine’s git access.',
   children,
+  titleId,
 }: {
   connected: (s: LibraryStatus) => void;
   title?: string;
   lead?: string;
   children?: React.ReactNode;
+  titleId?: string;
 }) {
   const [remote, setRemote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -290,7 +292,7 @@ export function Connect({
   return (
     <form className="sy-connect" onSubmit={(e) => void submit(e)} noValidate>
       <div className="sy-intro">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <p>{lead}</p>
       </div>
       <label className="sy-label" htmlFor="sy-remote">
