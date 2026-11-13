@@ -16,6 +16,9 @@ export function Sea({
   rest: restAt = 0.62,
   swell = 1,
   wavelength = 1,
+  fps = 60,
+  charSize,
+  density = 2,
 }: {
   state: SeaState;
   above?: React.RefObject<HTMLElement | null>;
@@ -26,6 +29,12 @@ export function Sea({
   swell?: number;
   /** How long the waves are, as a share of the full sea's. */
   wavelength?: number;
+  /** At most this many frames a second: a large, slow sea looks the same at fewer. */
+  fps?: number;
+  /** The characters' size in pixels; larger draws fewer of them. */
+  charSize?: number;
+  /** Pixels per CSS pixel at most: 1 halves the work on a sharp screen, for a sea in the back. */
+  density?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
@@ -65,18 +74,27 @@ export function Sea({
     };
     aimRef.current = aim;
 
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h);
+    // Read once per size, not per frame: computed style and fonts are slow to ask for.
+    let crest = '212, 232, 239';
+    let body = '108, 160, 182';
+    let ground = '#091116';
+    let cell = 14;
+    const style = () => {
       // Colours come from the page (as "r, g, b") so the ground can change without touching this.
       const css = getComputedStyle(cv);
-      const crest = css.getPropertyValue('--sea-crest').trim() || '212, 232, 239';
-      const body = css.getPropertyValue('--sea-body').trim() || '108, 160, 182';
-      const cell = w < 560 ? 12 : 14;
+      crest = css.getPropertyValue('--sea-crest').trim() || '212, 232, 239';
+      body = css.getPropertyValue('--sea-body').trim() || '108, 160, 182';
+      ground = css.getPropertyValue('--bg').trim() || '#091116';
+      cell = charSize ?? (w < 560 ? 12 : 14);
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
       const row = cell * 1.25;
       const step = cell * 0.62;
       const crestAt = (x: number) => level + (Math.sin((x * 0.011) / wavelength + t * 0.9) * 10 + Math.sin((x * 0.027) / wavelength - t * 1.3) * 5) * swell;
 
-      ctx.fillStyle = css.getPropertyValue('--bg').trim() || '#091116';
+      ctx.fillStyle = ground;
       ctx.beginPath();
       ctx.moveTo(0, h);
       for (let x = 0; x < w + step; x += step) ctx.lineTo(x, crestAt(x) - row / 2);
@@ -86,37 +104,44 @@ export function Sea({
 
       ctx.font = `500 ${cell}px Lilex, ui-monospace, monospace`;
       ctx.textBaseline = 'middle';
+      const crestInk = `rgba(${crest}, 0.95)`;
       for (let x = 0; x < w + cell; x += step) {
         const top = crestAt(x);
-        for (let y = top; y < h + row; y += row) {
+        // Rows above the top edge are not drawn: a covered sea starts above the screen.
+        for (let y = Math.max(top, top + Math.ceil((-row - top) / row) * row); y < h + row; y += row) {
           const depth = (y - top) / row;
-          const wave = Math.sin(x * 0.02 + y * 0.05 - t * 1.6) + Math.sin(x * 0.006 - t * 0.5);
           if (depth < 1) {
-            ctx.fillStyle = `rgba(${crest}, 0.95)`;
+            ctx.fillStyle = crestInk;
             ctx.fillText('≈', x, y);
-          } else {
-            const alpha = Math.max(0.16, 0.62 - depth * 0.03 + wave * 0.07);
-            ctx.fillStyle = `rgba(${body}, ${alpha})`;
-            ctx.fillText(CHARS[Math.max(0, Math.min(4, Math.round(1.6 + wave)))] ?? '~', x, y);
+            continue;
           }
+          const wave = Math.sin(x * 0.02 + y * 0.05 - t * 1.6) + Math.sin(x * 0.006 - t * 0.5);
+          ctx.fillStyle = `rgba(${body}, ${Math.max(0.16, 0.62 - depth * 0.03 + wave * 0.07).toFixed(2)})`;
+          ctx.fillText(CHARS[Math.max(0, Math.min(4, Math.round(1.6 + wave)))] ?? '~', x, y);
         }
       }
     };
 
     const size = () => {
       const r = cv.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(density, window.devicePixelRatio || 1);
       w = r.width;
       h = r.height;
       cv.width = w * dpr;
       cv.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      style();
       aim();
       draw();
     };
 
+    const frame = 1000 / fps;
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000 || 0);
+      if (now - last < frame - 2) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+      const dt = Math.min(0.1, (now - last) / 1000 || 0);
       last = now;
       t += dt;
       level += (target - level) * Math.min(1, dt * 2.4);
@@ -152,7 +177,7 @@ export function Sea({
       document.removeEventListener('visibilitychange', run);
       aimRef.current = () => {};
     };
-  }, [above, covered, restAt, swell, wavelength]);
+  }, [above, covered, restAt, swell, wavelength, fps, charSize, density]);
 
   return <canvas ref={canvas} className="sea" aria-hidden="true" />;
 }

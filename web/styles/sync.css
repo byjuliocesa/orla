@@ -548,8 +548,8 @@
   place-items: center;
 }
 .ob::backdrop {
-  background: rgba(6, 12, 15, 0.7);
-  backdrop-filter: blur(3px) grayscale(0.6);
+  /* Flat, not blurred: a blur under an animated sea is redrawn with every frame. */
+  background: rgba(6, 12, 15, 0.86);
   animation: ob-dim 600ms var(--ease-out) both;
 }
 .ob[data-leaving]::backdrop {
