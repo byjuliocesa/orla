@@ -106,10 +106,11 @@
 .sy-input:hover:not(:disabled) {
   border-color: var(--edge-hover);
 }
+/* No ring around the field: focus shows as a lighter edge and the caret. */
+.sy-input:focus,
 .sy-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--edge-hover);
 }
 .sy-field .btn {
   height: 36px;
