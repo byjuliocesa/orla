@@ -48,7 +48,7 @@ export function Onboarding({ done }: { done: () => void }) {
       }}
     >
       <div className="ob-sea" aria-hidden="true">
-        <Sea state={sea} rest={0.66} swell={0.8} wavelength={0.8} />
+        <Sea state={sea} rest={0.03} swell={0.8} wavelength={0.8} />
       </div>
       <div className="ob-card">
         <Connect connected={close} title="Bring your library" lead="Paste the git repository with your skills, flows and sessions. An empty one starts a new library." titleId="ob-title">

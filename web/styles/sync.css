@@ -555,13 +555,13 @@
 .ob[data-leaving]::backdrop {
   animation: ob-dim 480ms var(--ease-out) reverse both;
 }
-/* The sea draws its water in the page ground; here a darker, see-through one, so the panel
-   still shows faintly beneath. */
+/* The sea rises over the whole screen. It draws its water in the page ground; here a darker,
+   see-through one, so the panel still shows faintly beneath. */
 .ob-sea {
   --bg: rgba(5, 10, 13, 0.55);
   position: absolute;
   inset: 0;
-  opacity: 0.55;
+  opacity: 0.42;
   pointer-events: none;
 }
 .ob-sea .sea,
