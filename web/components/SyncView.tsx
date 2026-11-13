@@ -328,37 +328,40 @@ export function Connect({
   );
 }
 
-/** The SSH key this machine reaches the repository with: Orla's, or the owner's own. */
+/**
+ * Shown once the repository refused this machine: generate a key for it, or save the owner's
+ * own. Saved, the field locks until Change; then the owner connects again.
+ */
 function KeyBox() {
   const [key, setKey] = useState<LibraryKey | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'generate' | 'save' | null>(null);
   // Asked inline, not in a dialog: this box may itself sit in one.
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     api.libraryKey().then(setKey, (err) => toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not read its key.'));
   }, []);
 
+  const act = async (what: 'generate' | 'save') => {
+    setBusy(what);
+    try {
+      setKey(what === 'generate' ? await api.generateLibraryKey() : await api.setLibraryKey(draft));
+      setEditing(false);
+      setDraft('');
+      toast(what === 'generate' ? 'Key generated. Add it to the repository.' : 'Key saved.', 'ok');
+    } catch (err) {
+      toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not save the key.');
+    } finally {
+      setBusy(null);
+    }
+  };
   const copy = () =>
     key &&
     navigator.clipboard?.writeText(key.key).then(
       () => toast('Key copied.', 'ok'),
       () => toast('The browser did not allow copying. Select the key and copy it.'),
     );
-  const save = async () => {
-    setBusy(true);
-    try {
-      setKey(await api.setLibraryKey(draft));
-      setEditing(false);
-      setDraft('');
-      toast('Key saved.', 'ok');
-    } catch (err) {
-      toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not save the key.');
-    } finally {
-      setBusy(false);
-    }
-  };
   const remove = async () => {
     if (!confirming) return setConfirming(true);
     setConfirming(false);
@@ -371,61 +374,85 @@ function KeyBox() {
   };
 
   if (!key) return null;
+  const removeBtn = (
+    <button type="button" className="fl-act fl-act-delete" onClick={() => void remove()} onBlur={() => setConfirming(false)}>
+      <Trash />
+      {confirming ? 'Remove for good' : 'Remove'}
+    </button>
+  );
+
+  // No key yet, or changing the owner's: generate one, or paste a private key and save it.
+  if (!key.key || editing) {
+    return (
+      <div className="sy-key">
+        <div className="sy-key-head">
+          <span className="sy-label">{editing ? 'Your private key' : 'Generate an SSH key?'}</span>
+        </div>
+        <textarea
+          className="sy-input sy-key-edit"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={editing ? '-----BEGIN OPENSSH PRIVATE KEY-----' : 'Or paste your own private key'}
+          aria-label="Private key"
+          spellCheck={false}
+          autoComplete="off"
+          rows={4}
+          disabled={!!busy}
+        />
+        <div className="sy-key-edit-acts">
+          {editing ? (
+            <button type="button" className="btn" onClick={() => setEditing(false)} disabled={!!busy}>
+              Cancel
+            </button>
+          ) : (
+            <button type="button" className="btn" onClick={() => void act('generate')} disabled={!!busy || !!draft.trim()}>
+              {busy === 'generate' ? 'Generating…' : 'Generate key'}
+            </button>
+          )}
+          <button type="button" className="btn btn-primary" onClick={() => void act('save')} disabled={!!busy || !draft.trim()}>
+            {busy === 'save' ? 'Saving…' : 'Save key'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // The owner's own: the field stays, locked, until Change.
+  if (key.own) {
+    return (
+      <div className="sy-key">
+        <div className="sy-key-head">
+          <span className="sy-label">Your private key</span>
+          <span className="sy-key-acts">
+            <button type="button" className="fl-act" onClick={() => setEditing(true)}>
+              <Pencil />
+              Change
+            </button>
+            {removeBtn}
+          </span>
+        </div>
+        <textarea className="sy-input sy-key-edit" value="" placeholder="Saved on this machine. Connect again." aria-label="Private key, saved" rows={2} disabled />
+      </div>
+    );
+  }
+
+  // Generated here: the public half, to add to the repository.
   return (
     <div className="sy-key">
       <div className="sy-key-head">
-        <span className="sy-label">{key.own ? 'Your key' : 'This machine’s key'}</span>
-        {!editing && (
-          <span className="sy-key-acts">
-            <button type="button" className="fl-act" onClick={() => void copy()}>
-              <Copy />
-              Copy
-            </button>
-            <button type="button" className="fl-act" onClick={() => setEditing(true)}>
-              <Pencil />
-              {key.own ? 'Change' : 'Use my own'}
-            </button>
-            {key.own && (
-              <button type="button" className="fl-act fl-act-delete" onClick={() => void remove()} onBlur={() => setConfirming(false)}>
-                <Trash />
-                {confirming ? 'Remove for good' : 'Remove'}
-              </button>
-            )}
-          </span>
-        )}
+        <span className="sy-label">This machine’s key</span>
+        <span className="sy-key-acts">
+          <button type="button" className="fl-act" onClick={() => void copy()}>
+            <Copy />
+            Copy
+          </button>
+          {removeBtn}
+        </span>
       </div>
-      {editing ? (
-        <>
-          <textarea
-            className="sy-input sy-key-edit"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-            aria-label="Private key"
-            spellCheck={false}
-            autoComplete="off"
-            rows={5}
-            autoFocus
-            disabled={busy}
-          />
-          <div className="sy-key-edit-acts">
-            <button type="button" className="btn" onClick={() => setEditing(false)} disabled={busy}>
-              Cancel
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || !draft.trim()}>
-              {busy ? 'Saving…' : 'Save key'}
-            </button>
-          </div>
-          <p className="sy-key-note">The private key stays on this machine. One with a passphrase cannot be used.</p>
-        </>
-      ) : (
-        <>
-          <code className="sy-key-value" title={key.key}>
-            {key.key}
-          </code>
-          <p className="sy-key-note">{key.own ? 'It needs access to the repository.' : 'Add it to the repository with write access, then connect again.'}</p>
-        </>
-      )}
+      <code className="sy-key-value" title={key.key}>
+        {key.key}
+      </code>
+      <p className="sy-key-note">Add it to the repository with write access, then connect again.</p>
     </div>
   );
 }

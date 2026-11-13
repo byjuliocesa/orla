@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-/** The SSH key the library reaches its repository with; `own` when it is the owner's. */
+/** The SSH key the library reaches its repository with; `key` is empty when there is none, `own` when it is the owner's. */
 export interface LibraryKey {
   key: string;
   own: boolean;
@@ -138,6 +138,7 @@ export const api = {
   skillDoc: (name: string, cwd: string) => call<{ name: string; path: string; body: string }>('GET', `/v1/skill-doc?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(cwd)}`),
   library: () => call<LibraryStatus>('GET', '/v1/library'),
   libraryKey: () => call<LibraryKey>('GET', '/v1/library/key'),
+  generateLibraryKey: () => call<LibraryKey>('POST', '/v1/library/key'),
   setLibraryKey: (privateKey: string) => call<LibraryKey>('PUT', '/v1/library/key', { private: privateKey }),
   removeLibraryKey: () => call<LibraryKey>('DELETE', '/v1/library/key'),
   libraryAuto: (auto: boolean) => call<LibraryStatus>('PATCH', '/v1/library', { auto }),
