@@ -452,7 +452,6 @@ function KeyBox() {
       <code className="sy-key-value" title={key.key}>
         {key.key}
       </code>
-      <p className="sy-key-note">Add it to the repository with write access, then connect again.</p>
     </div>
   );
 }
