@@ -291,7 +291,8 @@ export function Connect({
       toast('Library synced.', 'info');
     } catch (err) {
       toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not reach the repository.');
-      setFailed(true);
+      // Only a refusal is fixed by a key; a wrong address or a network failure is not.
+      if (err instanceof ApiError && err.status === 403) setFailed(true);
       input.current?.focus();
     } finally {
       setBusy(false);
@@ -339,7 +340,10 @@ function KeyBox({ onBusy }: { onBusy: (on: boolean) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState<'generate' | 'save' | null>(null);
-  useEffect(() => onBusy(busy !== null), [busy, onBusy]);
+  // Until this machine has a key (or while one is being made or changed), connecting cannot
+  // succeed, so the address and Connect wait.
+  const waiting = busy !== null || !key || !key.key || editing;
+  useEffect(() => onBusy(waiting), [waiting, onBusy]);
   // Asked inline, not in a dialog: this box may itself sit in one.
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {

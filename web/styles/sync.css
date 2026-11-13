@@ -93,12 +93,18 @@
   opacity: 0.7;
   resize: none;
 }
+/* Lined up with the address field above: same inset, size and leading. */
 .sy-key-edit {
+  display: block;
+  width: 100%;
   height: auto;
-  padding: 8px 10px;
-  font-size: 12px;
-  line-height: 1.5;
+  min-height: 0;
+  padding: 9px 12px;
+  font: 13px/1.5 var(--mono);
   resize: vertical;
+}
+.sy-key-edit::placeholder {
+  font: inherit;
 }
 .sy-key-edit-acts {
   display: flex;
@@ -163,6 +169,10 @@
 }
 .sy-input::placeholder {
   color: var(--placeholder, var(--faint));
+}
+.sy-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .sy-input:hover:not(:disabled) {
   border-color: var(--edge-hover);
