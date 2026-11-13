@@ -5,7 +5,7 @@ import { ago, shortPath } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
 import type { LibraryEntry, LibraryStatus, SavedSession } from '@/lib/types';
 import { ask } from './ConfirmDialog';
-import { RepoIcon, SyncIcon } from './Icons';
+import { Copy, RepoIcon, SyncIcon } from './Icons';
 import { toast } from './Toast';
 
 type Action = Parameters<typeof api.libraryAction>[0];
@@ -271,6 +271,17 @@ export function Connect({
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
+  const [key, setKey] = useState<string | null>(null);
+  useEffect(() => {
+    api.libraryKey().then((r) => setKey(r.key), () => {});
+  }, []);
+  const copyKey = () => {
+    if (!key) return;
+    navigator.clipboard?.writeText(key).then(
+      () => toast('Key copied.', 'ok'),
+      () => toast('The browser did not allow copying. Select the key and copy it.'),
+    );
+  };
   // While connecting, nothing else on the page answers, so the clone or push is not cut short.
   useEffect(() => (busy && form.current ? freezeAround(form.current) : undefined), [busy]);
   const submit = async (e: React.FormEvent) => {
@@ -318,6 +329,21 @@ export function Connect({
           {busy ? 'Connecting…' : 'Connect'}
         </button>
       </div>
+      {key && (
+        <div className="sy-key">
+          <div className="sy-key-head">
+            <span className="sy-label">This machine’s key</span>
+            <button type="button" className="fl-act" onClick={copyKey}>
+              <Copy />
+              Copy
+            </button>
+          </div>
+          <code className="sy-key-value" title={key}>
+            {key}
+          </code>
+          <p className="sy-key-note">Add it to the repository with write access.</p>
+        </div>
+      )}
       {children}
       </fieldset>
     </form>

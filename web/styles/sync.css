@@ -64,6 +64,44 @@
   border-radius: var(--radius);
   background: var(--panel);
 }
+/* The key this machine reaches the repository with, to add there once. */
+.sy-key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--raise);
+}
+.sy-key-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sy-key-head .sy-label {
+  margin: 0;
+}
+.sy-key-head .fl-act {
+  height: 26px;
+  font-size: 12px;
+}
+.sy-key-value {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font: 12px var(--mono);
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+.sy-key-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--faint);
+}
 .sy-fieldset {
   display: contents;
 }
