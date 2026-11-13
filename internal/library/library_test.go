@@ -151,3 +151,30 @@ func TestRedact(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestMachineKeyIsMadeOnceAndUsedBySSH(t *testing.T) {
+	m := machine(t)
+	m.Keys = filepath.Join(m.Home, "keys")
+	a, err := m.PublicKey(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := m.PublicKey(context.Background())
+	if !strings.HasPrefix(a, "ssh-ed25519 ") || a != b {
+		t.Fatalf("keys %q then %q", a, b)
+	}
+	if c := m.sshCommand(); !strings.Contains(c, "-i '"+m.keyPath()+"'") || !strings.Contains(c, "StrictHostKeyChecking=accept-new") {
+		t.Fatalf("ssh command: %s", c)
+	}
+}
+
+func TestExplainSkipsGitsClosingAdvice(t *testing.T) {
+	got := explain("Host key verification failed.\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n", errors.New("exit 128"))
+	if got != "the repository's host did not prove who it is to this machine" {
+		t.Fatal(got)
+	}
+	got = explain("fatal: something odd\nPlease make sure you have the correct access rights\nand the repository exists.", errors.New("x"))
+	if got != "something odd" {
+		t.Fatal(got)
+	}
+}

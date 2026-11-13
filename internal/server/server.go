@@ -118,6 +118,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("DELETE /v1/flows/{name}/steps/{step}", s.flowAction)
 	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
 	api.HandleFunc("GET /v1/library", s.libraryStatus)
+	api.HandleFunc("GET /v1/library/key", s.libraryKey)
 	api.HandleFunc("PATCH /v1/library", s.librarySettings)
 	api.HandleFunc("POST /v1/library/{action}", s.libraryAction)
 	api.HandleFunc("GET /v1/prefs/{key}", s.getPref)

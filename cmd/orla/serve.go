@@ -94,7 +94,7 @@ func serve(args []string) error {
 	// Automations reach Orla over its own API, with its token.
 	// The library: the owner's skills, flows and automations, kept in a repository of their own.
 	home, _ := os.UserHomeDir()
-	shelf := &library.Manager{Root: filepath.Join(*dataDir, "library"), Home: home, Settings: filepath.Join(*dataDir, "library.json"), Log: log}
+	shelf := &library.Manager{Root: filepath.Join(*dataDir, "library"), Home: home, Settings: filepath.Join(*dataDir, "library.json"), Keys: filepath.Join(*dataDir, "ssh"), Log: log}
 	go shelf.Run(ctx)
 
 	automations := &automation.Manager{URL: "http://" + *addr, Token: token, Bus: bus, Logs: filepath.Join(*dataDir, "automations"), Log: log}

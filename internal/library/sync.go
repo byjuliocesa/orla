@@ -25,7 +25,10 @@ type Manager struct {
 	Home string
 	// Settings is the file that keeps the owner's choices.
 	Settings string
-	Log      *slog.Logger
+	// Keys holds this machine's own SSH key for the library and the hosts it has met. Empty
+	// leaves SSH to the machine's own setup alone.
+	Keys string
+	Log  *slog.Logger
 
 	op sync.Mutex // one git operation at a time
 	mu sync.Mutex // guards st, which Status reads while an operation runs
@@ -383,7 +386,7 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 		"GCM_INTERACTIVE=never",
 	)
 	if os.Getenv("GIT_SSH_COMMAND") == "" {
-		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=15")
+		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND="+m.sshCommand())
 	}
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
@@ -393,14 +396,62 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 	return strings.TrimSpace(out.String()), nil
 }
 
+// sshCommand is how git reaches an SSH remote: never asking, trying this machine's library key
+// beside its usual ones, and trusting a host the first time it is met (as a person answering
+// yes would), while refusing one whose key has changed since.
+func (m *Manager) sshCommand() string {
+	c := "ssh -o BatchMode=yes -o ConnectTimeout=15"
+	if m.Keys == "" {
+		return c
+	}
+	// Hosts met are written to the first file; the machine's own list is read too.
+	known := filepath.Join(m.Keys, "known_hosts")
+	if home, _ := os.UserHomeDir(); home != "" {
+		known += " " + filepath.Join(home, ".ssh", "known_hosts")
+	}
+	c += " -o StrictHostKeyChecking=accept-new -o " + shellQuote("UserKnownHostsFile="+known)
+	if _, err := os.Stat(m.keyPath()); err == nil {
+		c += " -i " + shellQuote(m.keyPath())
+	}
+	return c
+}
+
+func (m *Manager) keyPath() string { return filepath.Join(m.Keys, "id_ed25519") }
+
+// PublicKey answers this machine's library key, making it the first time: the key the owner
+// adds to the repository (on GitHub, as a deploy key with write access) to let this machine in.
+func (m *Manager) PublicKey(ctx context.Context) (string, error) {
+	if m.Keys == "" {
+		return "", errors.New("this Orla keeps no key of its own")
+	}
+	pub := m.keyPath() + ".pub"
+	if b, err := os.ReadFile(pub); err == nil {
+		return strings.TrimSpace(string(b)), nil
+	}
+	if err := os.MkdirAll(m.Keys, 0o700); err != nil {
+		return "", err
+	}
+	host, _ := os.Hostname()
+	cmd := exec.CommandContext(ctx, "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "orla@"+host, "-f", m.keyPath())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))
+	}
+	b, err := os.ReadFile(pub)
+	return strings.TrimSpace(string(b)), err
+}
+
+func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+
 // explain turns git's stderr into one sentence the owner can act on.
 func explain(stderr string, err error) string {
 	s := strings.TrimSpace(stderr)
 	switch {
+	case strings.Contains(s, "Host key verification failed"), strings.Contains(s, "REMOTE HOST IDENTIFICATION HAS CHANGED"):
+		return "the repository's host did not prove who it is to this machine"
 	case strings.Contains(s, "Please tell me who you are"), strings.Contains(s, "user.email"):
 		return "git on this machine has no author yet: set user.name and user.email"
 	case strings.Contains(s, "Permission denied"), strings.Contains(s, "Authentication failed"), strings.Contains(s, "could not read Username"):
-		return "this machine's git credentials were refused (an SSH key, a credential helper or gh auth login lets it in)"
+		return "this machine has no access yet: add its key to the repository, with write access"
 	case strings.Contains(s, "not found"), strings.Contains(s, "does not appear to be a git repository"):
 		return "no repository answers at that address, or this machine cannot see it"
 	case strings.Contains(s, "Could not resolve host"):
@@ -408,11 +459,14 @@ func explain(stderr string, err error) string {
 	case strings.Contains(s, "rejected"):
 		return "the repository refused the push; sync again to take its changes first"
 	}
-	lines := strings.Split(s, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		if l := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(lines[i], "fatal: "), "error: ")); l != "" {
-			return l
+	// Otherwise git's first line of substance: its closing advice ("make sure you have the
+	// correct access rights and the repository exists") says nothing of what went wrong.
+	for _, line := range strings.Split(s, "\n") {
+		l := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "fatal: "), "error: "))
+		if l == "" || strings.HasPrefix(l, "Could not read from remote") || strings.HasPrefix(l, "Please make sure") || strings.HasPrefix(l, "and the repository exists") {
+			continue
 		}
+		return l
 	}
 	return err.Error()
 }

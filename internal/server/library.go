@@ -40,6 +40,20 @@ func (s *Server) libraryStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
+// libraryKey answers this machine's public key for the library, making it the first time.
+func (s *Server) libraryKey(w http.ResponseWriter, r *http.Request) {
+	if s.shelf == nil {
+		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
+		return
+	}
+	key, err := s.shelf.PublicKey(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"key": key})
+}
+
 // librarySettings takes {"auto": bool}: whether the library syncs on its own.
 func (s *Server) librarySettings(w http.ResponseWriter, r *http.Request) {
 	if s.shelf == nil {
