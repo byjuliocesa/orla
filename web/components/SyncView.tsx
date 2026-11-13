@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { ago, shortPath } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
-import type { LibraryEntry, LibraryStatus } from '@/lib/types';
+import type { LibraryEntry, LibraryStatus, SavedSession } from '@/lib/types';
 import { ask } from './ConfirmDialog';
 import { RepoIcon, SyncIcon } from './Icons';
 import { toast } from './Toast';
@@ -51,7 +51,7 @@ export function syncWords(st: LibraryStatus, now: number): string {
  * automations open on every machine that runs Orla. Any remote works, with the access this
  * machine's git already has.
  */
-export function SyncView({ st, setSt, reload }: { st: LibraryStatus | null; setSt: (s: LibraryStatus) => void; reload: () => void }) {
+export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus | null; setSt: (s: LibraryStatus) => void; reload: () => void; openSession: (id: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const run = async (action: Action, body?: Body, key: string = action): Promise<boolean> => {
@@ -111,6 +111,19 @@ export function SyncView({ st, setSt, reload }: { st: LibraryStatus | null; setS
             })
           )}
         </section>
+
+        {st.sessions.length > 0 && (
+          <section className="au-section">
+            <div className="sy-head">
+              <h3>Sessions</h3>
+            </div>
+            <ul className="au-list">
+              {st.sessions.map((x) => (
+                <SessionRow key={x.key} x={x} openSession={openSession} />
+              ))}
+            </ul>
+          </section>
+        )}
 
         {st.outside.length > 0 && (
           <section className="au-section">
@@ -174,6 +187,69 @@ function Row({ e, from, children }: { e: LibraryEntry; from?: string; children?:
           {children && <span className="sy-acts">{children}</span>}
         </span>
       </div>
+    </li>
+  );
+}
+
+/** A saved session: opened where it already is, or here, in a folder the owner confirms. */
+function SessionRow({ x, openSession }: { x: SavedSession; openSession: (id: string) => void }) {
+  const now = useNow(60_000);
+  const [asking, setAsking] = useState(false);
+  const [cwd, setCwd] = useState(x.cwd);
+  const [busy, setBusy] = useState(false);
+  const open = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      openSession((await api.openSaved(x.key, cwd.trim())).id);
+    } catch (err) {
+      toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not open it.');
+      setBusy(false);
+    }
+  };
+  return (
+    <li className="au-row sy-row" data-open={asking || undefined}>
+      <div className="au-main">
+        <span className="au-name au-name-static">
+          <span className="au-text">
+            <span className="au-title">{x.title}</span>
+            <span className="au-desc">
+              {x.host} · {ago(x.saved, now)}
+            </span>
+          </span>
+        </span>
+        <span className="sy-side">
+          <span className="sy-meta">
+            <span className="sy-from" title={x.cwd}>
+              {shortPath(x.cwd, 32)}
+            </span>
+          </span>
+          <span className="sy-acts">
+            {x.here ? (
+              <button type="button" className="fl-act" onClick={() => openSession(x.here!)}>
+                Open
+              </button>
+            ) : (
+              <button type="button" className="fl-act" aria-expanded={asking} onClick={() => setAsking((v) => !v)}>
+                Open here
+              </button>
+            )}
+          </span>
+        </span>
+      </div>
+      {asking && (
+        <form className="sy-open" onSubmit={(e) => void open(e)}>
+          <label className="sy-label" htmlFor={`sy-cwd-${x.key}`}>
+            Folder on this machine
+          </label>
+          <div className="sy-field">
+            <input id={`sy-cwd-${x.key}`} className="sy-input" value={cwd} onChange={(e) => setCwd(e.target.value)} spellCheck={false} autoComplete="off" autoFocus disabled={busy} />
+            <button type="submit" className="btn btn-primary" disabled={busy || !cwd.trim()}>
+              {busy ? 'Opening…' : 'Open'}
+            </button>
+          </div>
+        </form>
+      )}
     </li>
   );
 }

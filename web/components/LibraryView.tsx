@@ -17,7 +17,7 @@ const TAB_KEY = 'orla.library.tab';
  * The Library: everything the owner keeps for every session. Flows, which sessions choose to
  * follow, and automations, which run with a session or on their own.
  */
-export function LibraryView({ sessions, onBack }: { sessions: Session[]; onBack: () => void }) {
+export function LibraryView({ sessions, onBack, openSession }: { sessions: Session[]; onBack: () => void; openSession: (id: string) => void }) {
   const [tab, setTabState] = useState<Tab>(() => {
     try {
       const t = localStorage.getItem(TAB_KEY);
@@ -78,7 +78,7 @@ export function LibraryView({ sessions, onBack }: { sessions: Session[]; onBack:
         ) : tab === 'automations' ? (
           <AutomationsView sessions={sessions} />
         ) : (
-          <SyncView st={lib} setSt={setLib} reload={reloadLib} />
+          <SyncView st={lib} setSt={setLib} reload={reloadLib} openSession={openSession} />
         )}
       </div>
     </div>

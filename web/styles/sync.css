@@ -366,6 +366,18 @@
 .sy-row .au-main {
   min-height: 46px;
 }
+/* Opening a saved session here: the folder it works in. */
+.sy-open {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 10px 14px 30px;
+}
+.sy-row[data-open] .sy-acts {
+  opacity: 1;
+}
+.sy-row[data-open] .sy-meta {
+  opacity: 0;
+}
 .sy-kind {
   margin-left: 8px;
   padding: 1px 6px;

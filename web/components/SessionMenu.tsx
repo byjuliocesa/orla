@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Session } from '@/lib/types';
-import { Archive, Copy, Pencil, Pin, Trash } from './Icons';
+import { Archive, Books, Copy, Pencil, Pin, Trash } from './Icons';
 
-export type SessionAction = 'rename' | 'pin' | 'copy' | 'archive' | 'remove';
+export type SessionAction = 'rename' | 'pin' | 'copy' | 'save' | 'archive' | 'remove';
 
 type Item = { action: SessionAction; label: string; icon: ReactNode; danger?: boolean };
 
@@ -16,6 +16,7 @@ export function SessionMenu({ session, x, y, onPick, onClose }: { session: Sessi
     { action: 'rename', label: 'Rename', icon: <Pencil /> },
     { action: 'pin', label: session.pinned ? 'Unpin' : 'Pin to top', icon: <Pin /> },
     { action: 'copy', label: 'Copy folder path', icon: <Copy /> },
+    { action: 'save', label: 'Save to library', icon: <Books /> },
     { action: 'archive', label: session.archived ? 'Unarchive' : 'Archive', icon: <Archive /> },
     null,
     { action: 'remove', label: 'Remove…', icon: <Trash />, danger: true },

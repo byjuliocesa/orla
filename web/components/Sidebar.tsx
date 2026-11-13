@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { sessionName } from '@/lib/format';
 import type { Route } from '@/lib/route';
 import type { Session } from '@/lib/types';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ask, ConfirmDialog } from './ConfirmDialog';
+import { toast } from './Toast';
 import { LogOut, PanelLeft, Pin, Plus, Books } from './Icons';
 import { Lockup } from './Logo';
 import { SessionMenu, type SessionAction } from './SessionMenu';
@@ -67,6 +68,19 @@ export function Sidebar({
     if (a === 'archive') void actions.archive(s.id, !s.archived);
     if (a === 'copy') void navigator.clipboard?.writeText(s.worktree?.path ?? s.cwd);
     if (a === 'remove') setConfirm({ kind: 'remove', session: s });
+    if (a === 'save') void save(s);
+  };
+
+  // The transcript holds what tools read, so saving it is asked, never assumed.
+  const save = async (s: Session) => {
+    const ok = await ask({ title: `Save ${sessionName(s)} to the library?`, body: 'Its conversation goes to the library’s repository, with everything its tools read.', confirm: 'Save', danger: false });
+    if (!ok) return;
+    try {
+      await api.saveSession(s.id);
+      toast('Saved to the library.', 'info');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Orla could not save it.');
+    }
   };
 
   const closeConfirm = () => {

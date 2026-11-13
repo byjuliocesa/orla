@@ -149,7 +149,16 @@ export default function Panel() {
       );
       break;
     case 'library':
-      main = <LibraryView sessions={sessions} onBack={() => (route.session ? go({ view: 'session', session: route.session }) : home())} />;
+      main = (
+        <LibraryView
+          sessions={sessions}
+          onBack={() => (route.session ? go({ view: 'session', session: route.session }) : home())}
+          openSession={(id) => {
+            overview.refresh();
+            go({ view: 'session', session: id });
+          }}
+        />
+      );
       break;
     case 'new':
       main = (

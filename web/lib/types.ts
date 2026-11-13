@@ -237,4 +237,19 @@ export interface LibraryStatus {
   entries: LibraryEntry[];
   outside: LibraryEntry[];
   agents: LibraryAgent[];
+  sessions: SavedSession[];
+}
+
+/** A conversation saved in the library, to open on another machine. */
+export interface SavedSession {
+  key: string;
+  native: string;
+  title: string;
+  cwd: string;
+  repo?: string;
+  branch?: string;
+  host: string;
+  saved: string;
+  /** The session on this machine that holds it. */
+  here?: string;
 }
