@@ -57,6 +57,8 @@ type Status struct {
 	Entries []Entry  `json:"entries"`
 	Outside []Entry  `json:"outside"`
 	Agents  []agentV `json:"agents"`
+	// Sessions are the conversations saved in the library.
+	Sessions []SavedSession `json:"sessions"`
 }
 
 type agentV struct {
@@ -86,6 +88,7 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	if o := Outside(m.Root, m.Home); o != nil {
 		s.Outside = o
 	}
+	s.Sessions = SavedSessions(m.Root)
 
 	m.mu.Lock()
 	st := m.st
@@ -431,7 +434,7 @@ func empty(dir string) bool {
 
 // starter lays out a new library so a clone shows what goes where.
 func starter(root string) error {
-	for _, d := range append([]string{Shared, Automations}, agentNames()...) {
+	for _, d := range append([]string{Shared, Automations, Sessions}, agentNames()...) {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			return err
 		}
@@ -453,6 +456,7 @@ Skills, flows and automations that travel with Orla to every machine.
 - shared/: skills every agent loads (Claude Code, Codex…)
 - claude/, codex/: skills only that agent loads
 - automations/: Orla's automations
+- sessions/: conversations saved from Orla, to open on another machine
 
 Connect this repository in Orla, under Library > Sync, on each machine.
 `), 0o644)

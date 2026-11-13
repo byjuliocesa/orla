@@ -103,6 +103,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("PATCH /v1/sessions/{id}", s.updateSession)
 	api.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
 	api.HandleFunc("POST /v1/sessions/{id}/fork", s.forkSession)
+	api.HandleFunc("POST /v1/sessions/{id}/save", s.saveSession)
 	api.HandleFunc("GET /v1/limits", s.limits)
 	api.HandleFunc("GET /v1/skills", s.skills)
 	api.HandleFunc("GET /v1/automations", s.listAutomations)
