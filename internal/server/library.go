@@ -165,9 +165,14 @@ func (s *Server) libraryAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var conflict *library.ConflictError
+	var refused *library.AccessError
 	switch {
 	case errors.As(err, &conflict), errors.Is(err, library.ErrNoRemote):
 		writeError(w, http.StatusConflict, err.Error())
+		return
+	case errors.As(err, &refused):
+		// The client offers a key on this answer alone.
+		writeError(w, http.StatusForbidden, err.Error())
 		return
 	case err != nil:
 		writeError(w, http.StatusUnprocessableEntity, err.Error())

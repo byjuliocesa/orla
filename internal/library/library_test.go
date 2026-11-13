@@ -216,3 +216,18 @@ func TestExplainSkipsGitsClosingAdvice(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestRefusalIsAnAccessErrorAndABadAddressIsNot(t *testing.T) {
+	m := machine(t)
+	// A local path that is no repository: git says it "does not appear to be a git repository",
+	// which a host hiding a private repository says too.
+	err := m.Connect(context.Background(), filepath.Join(t.TempDir(), "nothing.git"))
+	var a *AccessError
+	if !errors.As(err, &a) {
+		t.Fatalf("not an access error: %v", err)
+	}
+	err = m.Connect(context.Background(), "git@nowhere.invalid:me/lib.git")
+	if errors.As(err, &a) {
+		t.Fatalf("an unreachable host counted as a refusal: %v", err)
+	}
+}

@@ -391,7 +391,11 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
-		return "", errors.New(explain(errb.String(), err))
+		msg := explain(errb.String(), err)
+		if refused(errb.String()) {
+			return "", &AccessError{msg}
+		}
+		return "", errors.New(msg)
 	}
 	return strings.TrimSpace(out.String()), nil
 }
@@ -417,6 +421,23 @@ func (m *Manager) sshCommand() string {
 }
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+
+// AccessError is a remote that answered but did not let this machine in: a key or a credential
+// fixes it, where a wrong address or a network failure does not.
+type AccessError struct{ msg string }
+
+func (e *AccessError) Error() string { return e.msg }
+
+// refused tells a refusal from other failures. A host that hides private repositories (GitHub
+// does) answers "not found" to a machine without access, so that counts as one too.
+func refused(stderr string) bool {
+	for _, s := range []string{"Permission denied", "Authentication failed", "could not read Username", "Host key verification failed", "Repository not found", "does not appear to be a git repository"} {
+		if strings.Contains(stderr, s) {
+			return true
+		}
+	}
+	return false
+}
 
 // explain turns git's stderr into one sentence the owner can act on.
 func explain(stderr string, err error) string {
