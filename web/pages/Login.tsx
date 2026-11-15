@@ -57,7 +57,7 @@ export default function Login() {
 
   return (
     <main className="login" data-state={state} data-theme={theme}>
-      <Sea state={state} above={form} />
+      <Sea state={state} above={form} fps={30} density={1} />
       <div className="login-side">
         <Lockup height={34} />
         <div>

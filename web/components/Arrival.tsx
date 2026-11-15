@@ -45,7 +45,7 @@ export function Arrival() {
   if (!on) return null;
   return (
     <div className="arrival" aria-hidden="true">
-      <Sea state={state} covered />
+      <Sea state={state} covered fps={30} density={1} />
     </div>
   );
 }

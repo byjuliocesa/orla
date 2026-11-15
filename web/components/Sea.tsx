@@ -137,6 +137,7 @@ export function Sea({
 
     const frame = 1000 / fps;
     const loop = (now: number) => {
+      if (dead) return;
       if (now - last < frame - 2) {
         raf = requestAnimationFrame(loop);
         return;
@@ -159,8 +160,10 @@ export function Sea({
       cancelAnimationFrame(raf);
       raf = 0;
       if (dead || document.hidden) return;
+      // size() aims, and aiming starts the loop when none runs: a second one here would be lost
+      // to cancel and draw forever, even after the page is gone.
       size();
-      if (reduce) return;
+      if (reduce || raf) return;
       last = performance.now();
       raf = requestAnimationFrame(loop);
     };
