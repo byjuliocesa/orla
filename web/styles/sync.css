@@ -725,6 +725,9 @@
 
 /* ---------- First visit: the agent ---------- */
 
+.ag-intro h2 {
+  margin-bottom: 18px;
+}
 .ag-list {
   display: grid;
   gap: 6px;

@@ -78,9 +78,8 @@ export function AgentStep({ next, titleId }: { next: () => void; titleId: string
   const ready = !!agents?.some(agentReady);
   return (
     <section className="sy-connect" aria-busy={busy !== null}>
-      <div className="sy-intro">
+      <div className="sy-intro ag-intro">
         <h2 id={titleId}>Your agent</h2>
-        <p>Orla runs it on this machine.</p>
       </div>
       <ul className="ag-list">
         {agents === null && <li className="ag-row ag-skeleton" aria-label="Checking" />}
