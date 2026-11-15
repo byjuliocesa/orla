@@ -46,7 +46,7 @@ const EFFORTS: { id: string; name: string; note?: ReactNode }[] = [
 ];
 // In Claude Code's Shift+Tab order.
 const MODES = [
-  { id: 'default', name: 'Ask permissions', hint: 'Every tool waits for your answer, here or on your phone' },
+  { id: 'default', name: 'Ask permissions', hint: 'Every tool waits for your answer' },
   { id: 'acceptEdits', name: 'Accept edits', hint: 'File edits go through; commands still ask' },
   { id: 'plan', name: 'Plan mode', hint: 'Reads and plans, changes nothing' },
   { id: 'auto', name: 'Auto mode', hint: 'The agent decides what needs asking' },

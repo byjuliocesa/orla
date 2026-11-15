@@ -273,6 +273,8 @@
 }
 .nc-menu {
   display: grid;
+  /* A long hint wraps inside the menu instead of widening its row past the edge. */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 210px;
   padding: 5px;
   border-radius: 10px;
@@ -365,6 +367,7 @@
   display: grid;
   gap: 1px;
   flex: 1;
+  min-width: 0;
 }
 .nc-item-hint {
   color: var(--dim);
