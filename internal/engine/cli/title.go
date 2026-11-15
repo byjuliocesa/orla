@@ -17,10 +17,7 @@ const titleInstructions = "You name coding sessions. Reply with only a title of 
 // the way Claude Code names its interactive sessions, which it does not do for headless runs.
 // It runs with no tools, no settings (so no hooks) and nothing saved, in the temp directory.
 func (c Claude) Title(ctx context.Context, prompt string) (string, error) {
-	path := c.Path
-	if path == "" {
-		path = "claude"
-	}
+	path := c.exe()
 	if utf8.RuneCountInString(prompt) > 4000 {
 		prompt = string([]rune(prompt)[:4000])
 	}

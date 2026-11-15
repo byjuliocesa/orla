@@ -126,10 +126,7 @@ func (c Claude) args(spec Spec) []string {
 // The CLI's session id reaches native as soon as the CLI reports it, so it is saved even if
 // the run fails later.
 func (c Claude) Run(ctx context.Context, spec Spec, emit func(Out), native func(string)) Outcome {
-	path := c.Path
-	if path == "" {
-		path = "claude"
-	}
+	path := c.exe()
 
 	cmd := exec.Command(path, c.args(spec)...)
 	cmd.Dir = spec.Cwd

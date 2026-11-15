@@ -114,6 +114,11 @@ func serve(args []string) error {
 			Uploads:     filepath.Join(*dataDir, "uploads"),
 			Automations: automations,
 			Shelf:       shelf,
+			Agents: []server.Agent{{
+				ID: "claude", Name: "Claude Code", Status: claude.Status,
+				Install: []string{"sh", "-c", cli.InstallCommand},
+				Login:   func() []string { return []string{claude.Exe(), "auth", "login"} },
+			}},
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

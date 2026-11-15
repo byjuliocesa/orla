@@ -40,6 +40,8 @@ type Deps struct {
 	Library func(ctx context.Context, cwd string) ([]cli.ContextPart, error)
 	// Automations runs the owner's automations; nil leaves them off.
 	Automations *automation.Manager
+	// Agents are the coding agents Orla can run, for the first visit to check.
+	Agents []Agent
 	// Shelf keeps the owner's library in a git repository; nil leaves the library unsynced.
 	Shelf *library.Manager
 	// Titler names a session from its first prompt; nil leaves sessions unnamed.
@@ -52,6 +54,7 @@ type Deps struct {
 type Server struct {
 	automations *automation.Manager
 	shelf       *library.Manager
+	agents      []Agent
 	log         *slog.Logger
 	terminals   *terminal.Manager
 	store       *store.Store
@@ -87,7 +90,7 @@ type cachedContext struct {
 func New(d Deps) http.Handler {
 	s := &Server{
 		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
-		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations, shelf: d.Shelf,
+		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations, shelf: d.Shelf, agents: d.Agents,
 	}
 
 	api := http.NewServeMux()
@@ -117,6 +120,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("POST /v1/flows/{name}/steps/{step}/{action}", s.flowAction)
 	api.HandleFunc("DELETE /v1/flows/{name}/steps/{step}", s.flowAction)
 	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
+	api.HandleFunc("GET /v1/agents", s.listAgents)
 	api.HandleFunc("GET /v1/library", s.libraryStatus)
 	api.HandleFunc("GET /v1/library/key", s.libraryKey)
 	api.HandleFunc("POST /v1/library/key", s.generateLibraryKey)

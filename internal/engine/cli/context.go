@@ -65,10 +65,7 @@ func (c Claude) Library(ctx context.Context, cwd string) ([]ContextPart, error) 
 }
 
 func (c Claude) context(ctx context.Context, cwd string, args []string) (ContextUsage, error) {
-	path := c.Path
-	if path == "" {
-		path = "claude"
-	}
+	path := c.exe()
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Dir = cwd
 	cmd.Env = headlessEnv()
