@@ -14,7 +14,19 @@ type Phase = 'connecting' | 'attached' | 'exited' | 'gone';
  * stopping the process. Keystrokes go up as bytes, output comes down as bytes, and size changes
  * go up as a resize message.
  */
-export function TerminalView({ id, theme, fontFamily }: { id: string; theme: TerminalTheme; fontFamily: string }) {
+export function TerminalView({
+  id,
+  theme,
+  fontFamily,
+  onExit,
+}: {
+  id: string;
+  theme: TerminalTheme;
+  fontFamily: string;
+  onExit?: (code: number | null) => void;
+}) {
+  const exited = useRef(onExit);
+  exited.current = onExit;
   const host = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>('connecting');
   const [exitCode, setExitCode] = useState<number | null>(null);
@@ -65,6 +77,7 @@ export function TerminalView({ id, theme, fontFamily }: { id: string; theme: Ter
             if (msg.type === 'exit') {
               setExitCode(msg.code ?? null);
               setPhase('exited');
+              exited.current?.(msg.code ?? null);
             }
             return;
           }

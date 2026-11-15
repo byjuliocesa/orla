@@ -666,6 +666,9 @@
   margin-bottom: 10vh;
   animation: ob-card-in 640ms var(--ease-out) 260ms both;
 }
+.ob-card:focus {
+  outline: none;
+}
 .ob[data-leaving] .ob-card {
   animation: ob-card-out 300ms var(--ease-out) both;
 }
@@ -716,6 +719,95 @@
   .ob::backdrop,
   .ob-card,
   .ob[data-leaving] .ob-card {
+    animation: none;
+  }
+}
+
+/* ---------- First visit: the agent ---------- */
+
+.ag-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 8px 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px rgba(var(--sea-crest), 0.06);
+}
+.ag-skeleton {
+  animation: ag-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes ag-pulse {
+  to {
+    opacity: 0.5;
+  }
+}
+.ag-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.ag-row[data-state='ready'] .ag-dot {
+  background: var(--ok);
+}
+.ag-row[data-state='login'] .ag-dot {
+  background: var(--wait-text);
+}
+.ag-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.ag-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ag-ok {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--ok);
+}
+.ag-ok svg {
+  width: 15px;
+  height: 15px;
+}
+.ag-term {
+  position: relative;
+  height: 240px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: #050c10;
+  box-shadow: inset 0 0 0 1px rgba(var(--sea-crest), 0.08);
+}
+.ag-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+.ag-skip {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ag-skeleton {
     animation: none;
   }
 }

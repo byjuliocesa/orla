@@ -1,0 +1,3 @@
+module.exports=[66188,a=>{"use strict";var b=a.i(7997);a.s(["default",0,function(){return(0,b.jsx)("main",{className:"login",children:(0,b.jsxs)("div",{className:"empty",style:{margin:0},children:[(0,b.jsx)("h2",{children:"Nothing here"}),(0,b.jsx)("p",{children:"This address is not part of Orla."}),(0,b.jsx)("a",{className:"btn",href:"/",children:"Open Orla"})]})})}])},2894,function(a){a.n(a.i(66188))}];
+
+//# sourceMappingURL=app_not-found_tsx_1gi3i27gi6b-4._.js.map

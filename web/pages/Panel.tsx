@@ -3,6 +3,7 @@ import { Arrival } from '@/components/Arrival';
 import { HomePage, ApprovalsPage } from '@/components/Pages';
 import { LibraryView } from '@/components/LibraryView';
 import { NewChat } from '@/components/NewChat';
+import { agentReady } from '@/components/AgentStep';
 import { Onboarding } from '@/components/Onboarding';
 import { SessionView } from '@/components/SessionView';
 import { Sidebar } from '@/components/Sidebar';
@@ -55,16 +56,21 @@ export default function Panel() {
     setNotify(stored('orla.notify') === 'on' && typeof Notification !== 'undefined' && Notification.permission === 'granted');
   }, []);
 
-  // First visit with no library: offer to bring one before anything else.
-  const [onboard, setOnboard] = useState(false);
+  // First visit, or no agent ready here: set up the agent, then the library if there is none.
+  const [onboard, setOnboard] = useState<null | { library: boolean }>(null);
   useEffect(() => {
-    Promise.all([api.pref<boolean>('library-onboarded'), api.library()]).then(
-      ([seen, lib]) => setOnboard(!seen.value && lib.state === 'off' && lib.entries.length === 0),
+    Promise.all([api.pref<boolean>('library-onboarded'), api.library(), api.agents().catch(() => [])]).then(
+      ([seen, lib, agents]) => {
+        const noAgent = !agents.some(agentReady);
+        const noLibrary = lib.state === 'off' && lib.entries.length === 0;
+        // An agent lost later (a sign-out, a new machine) brings the agent step back on its own.
+        if ((!seen.value && noLibrary) || (agents.length && noAgent)) setOnboard({ library: !seen.value && noLibrary });
+      },
       () => {},
     );
   }, []);
   const finishOnboard = useCallback(() => {
-    setOnboard(false);
+    setOnboard(null);
     void api.setPref('library-onboarded', true).catch(() => {});
   }, []);
 
@@ -295,7 +301,7 @@ export default function Panel() {
       <Toaster />
       <AskHost />
       <Arrival />
-      {onboard && <Onboarding done={finishOnboard} />}
+      {onboard && <Onboarding done={finishOnboard} library={onboard.library} />}
     </div>
   );
 }

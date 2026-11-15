@@ -1,4 +1,4 @@
-import type { Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
+import type { AgentInfo, Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -136,6 +136,7 @@ export const api = {
   deleteAutomation: (name: string) => call<{ ok: boolean }>('DELETE', `/v1/automations/${encodeURIComponent(name)}`),
   archivedFlows: () => call<{ flows: Flow[]; steps: { flow: string; step: FlowStep; path: string }[] }>('GET', '/v1/flows/archived'),
   skillDoc: (name: string, cwd: string) => call<{ name: string; path: string; body: string }>('GET', `/v1/skill-doc?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(cwd)}`),
+  agents: () => call<{ agents: AgentInfo[] }>('GET', '/v1/agents').then((r) => r.agents),
   library: () => call<LibraryStatus>('GET', '/v1/library'),
   libraryKey: () => call<LibraryKey>('GET', '/v1/library/key'),
   generateLibraryKey: () => call<LibraryKey>('POST', '/v1/library/key'),

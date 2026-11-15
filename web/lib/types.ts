@@ -253,3 +253,16 @@ export interface SavedSession {
   /** The session on this machine that holds it. */
   here?: string;
 }
+
+/** A coding agent Orla can run, and whether it is ready on this machine. */
+export interface AgentInfo {
+  id: string;
+  name: string;
+  installed: boolean;
+  version?: string;
+  loggedIn: boolean;
+  account?: string;
+  /** What a terminal runs to install it, or to sign in. */
+  install: string[];
+  login: string[];
+}

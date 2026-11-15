@@ -7,14 +7,14 @@ import type { TerminalInfo } from '@/lib/types';
 import { ArrowLeft, Cross, Plus, TerminalIcon } from './Icons';
 import { TerminalView, type TerminalTheme } from './TerminalView';
 
-const theme: TerminalTheme = {
+export const terminalTheme: TerminalTheme = {
   background: '#050c10',
   foreground: '#dde8eb',
   cursor: '#6aa1ff',
   selectionBackground: 'rgba(106, 161, 255, 0.3)',
 };
 
-const font = "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace";
+export const terminalFont = "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace";
 
 function label(t: TerminalInfo): string {
   const cmd = t.argv[0]?.split('/').pop() || 'shell';
@@ -96,7 +96,7 @@ export function TerminalDock({
       </div>
       <div className="dock-body">
         {current ? (
-          <TerminalView key={current.id} id={current.id} theme={theme} fontFamily={font} />
+          <TerminalView key={current.id} id={current.id} theme={terminalTheme} fontFamily={terminalFont} />
         ) : (
           <div className="dock-empty">
             <div className="dock-empty-term" aria-hidden="true">
