@@ -262,7 +262,4 @@ export interface AgentInfo {
   version?: string;
   loggedIn: boolean;
   account?: string;
-  /** What a terminal runs to install it, or to sign in. */
-  install: string[];
-  login: string[];
 }
