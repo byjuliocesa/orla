@@ -105,6 +105,8 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"DELETE", "/v1/terminals/term_x"},
 		{"GET", "/v1/terminals/term_x/stream"},
 		{"GET", "/v1/agents"},
+		{"POST", "/v1/agents/claude/install"},
+		{"POST", "/v1/agents/claude/login"},
 		{"GET", "/v1/library"},
 		{"PATCH", "/v1/library"},
 		{"POST", "/v1/library/sync"},

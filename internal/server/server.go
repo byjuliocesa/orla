@@ -55,6 +55,8 @@ type Server struct {
 	automations *automation.Manager
 	shelf       *library.Manager
 	agents      []Agent
+	loginMu     sync.Mutex
+	logins      map[string]*signIn
 	log         *slog.Logger
 	terminals   *terminal.Manager
 	store       *store.Store
@@ -90,7 +92,7 @@ type cachedContext struct {
 func New(d Deps) http.Handler {
 	s := &Server{
 		log: d.Log, terminals: d.Terminals, store: d.Store, bus: d.Bus, sessions: d.Sessions,
-		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations, shelf: d.Shelf, agents: d.Agents,
+		hookURL: d.HookURL, worktrees: d.Worktrees, uploads: d.Uploads, titler: d.Titler, contexter: d.Contexter, contexts: map[string]cachedContext{}, library: d.Library, libraries: map[string]cachedLibrary{}, automations: d.Automations, shelf: d.Shelf, agents: d.Agents, logins: map[string]*signIn{},
 	}
 
 	api := http.NewServeMux()
@@ -121,6 +123,10 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("DELETE /v1/flows/{name}/steps/{step}", s.flowAction)
 	api.HandleFunc("GET /v1/skill-doc", s.skillDoc)
 	api.HandleFunc("GET /v1/agents", s.listAgents)
+	api.HandleFunc("POST /v1/agents/{id}/install", s.installAgent)
+	api.HandleFunc("POST /v1/agents/{id}/login", s.startLogin)
+	api.HandleFunc("POST /v1/agents/{id}/login/code", s.finishLogin)
+	api.HandleFunc("DELETE /v1/agents/{id}/login", s.cancelLogin)
 	api.HandleFunc("GET /v1/library", s.libraryStatus)
 	api.HandleFunc("GET /v1/library/key", s.libraryKey)
 	api.HandleFunc("POST /v1/library/key", s.generateLibraryKey)
