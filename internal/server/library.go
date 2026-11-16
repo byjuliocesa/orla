@@ -160,6 +160,8 @@ func (s *Server) libraryAction(w http.ResponseWriter, r *http.Request) {
 		err = library.Adopt(m.Root, m.Home, body.From, body.Name, body.To)
 	case "move":
 		err = library.Move(m.Root, m.Home, body.From, body.Name, body.To)
+	case "release":
+		err = library.Release(m.Root, m.Home, body.From, body.Name)
 	case "open":
 		s.openSaved(w, r, body.Key, body.Cwd)
 		return

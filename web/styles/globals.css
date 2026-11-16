@@ -407,6 +407,22 @@ textarea {
   transform: translateX(1.5px);
 }
 
+/* Library: one book is pulled from the shelf and the leaning one settles. */
+.side-library .i-book,
+.side-library .i-lean {
+  transform-box: fill-box;
+  transition: transform 220ms var(--ease-out);
+}
+.side-library .i-lean {
+  transform-origin: 0% 100%;
+}
+.side-library:hover .i-book {
+  transform: translateY(-1.5px);
+}
+.side-library:hover .i-lean {
+  transform: rotate(-8deg);
+}
+
 .nav-item {
   position: relative;
   display: flex;

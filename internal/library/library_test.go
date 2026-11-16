@@ -235,3 +235,27 @@ func TestRefusalIsAnAccessErrorAndABadAddressIsNot(t *testing.T) {
 		t.Fatalf("an unreachable host counted as a refusal: %v", err)
 	}
 }
+
+func TestReleaseLeavesTheSkillOnThisMachine(t *testing.T) {
+	m := machine(t)
+	skills := filepath.Join(m.Home, ".claude/skills")
+	skill(t, skills, "taste", "Design taste.")
+	if err := Adopt(m.Root, m.Home, "claude", "taste", Shared); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(filepath.Join(skills, "taste")); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("after adopt, not a link: %v", err)
+	}
+	if err := Release(m.Root, m.Home, Shared, "taste"); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(filepath.Join(skills, "taste", "SKILL.md")); err != nil || !fi.Mode().IsRegular() {
+		t.Fatalf("the skill did not come back: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(m.Root, Shared, "taste")); !os.IsNotExist(err) {
+		t.Fatal("the library still has it")
+	}
+	if _, err := os.Lstat(filepath.Join(m.Home, ".codex/skills", "taste")); !os.IsNotExist(err) {
+		t.Fatal("Codex still links to it")
+	}
+}

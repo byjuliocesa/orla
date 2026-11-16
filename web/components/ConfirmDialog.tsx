@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { SeaDialog } from './SeaDialog';
 
 /** A modal question with one way forward and one way back. Escape and Cancel both close it. */
 export function ConfirmDialog({
@@ -23,47 +24,27 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-
   return (
-    <dialog
-      ref={ref}
-      className="confirm"
-      aria-labelledby="confirm-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!busy) onClose();
-      }}
-      onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
-    >
-      {open && (
-        <div className="confirm-box">
-          <h2 id="confirm-title">{title}</h2>
-          <div className="confirm-body">{children}</div>
-          {error && (
-            <p className="confirm-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="confirm-actions">
-            {/* Focus starts on the way back, so Enter alone never does the irreversible thing. */}
-            <button type="button" className="btn" onClick={onClose} disabled={busy} autoFocus>
-              Cancel
-            </button>
-            <button type="button" className={danger ? 'btn btn-danger' : 'btn btn-primary'} onClick={onConfirm} disabled={busy}>
-              {busy ? `${confirm}…` : confirm}
-            </button>
-          </div>
+    <SeaDialog open={open} onClose={onClose} busy={busy} labelledBy="confirm-title" className="confirm">
+      <div className="confirm-box">
+        <h2 id="confirm-title">{title}</h2>
+        <div className="confirm-body">{children}</div>
+        {error && (
+          <p className="confirm-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="confirm-actions">
+          {/* Focus starts on the way back, so Enter alone never does the irreversible thing. */}
+          <button type="button" className="btn" onClick={onClose} disabled={busy} autoFocus>
+            Cancel
+          </button>
+          <button type="button" className={danger ? 'btn btn-danger' : 'btn btn-primary'} onClick={onConfirm} disabled={busy}>
+            {busy ? `${confirm}…` : confirm}
+          </button>
         </div>
-      )}
-    </dialog>
+      </div>
+    </SeaDialog>
   );
 }
 
@@ -82,17 +63,23 @@ export function ask(q: Ask): Promise<boolean> {
 /** Where ask() shows its dialog; mounted once by the panel. */
 export function AskHost() {
   const [q, setQ] = useState<(Ask & { resolve: (ok: boolean) => void }) | null>(null);
+  // The question stays on the card while it leaves.
+  const [open, setOpen] = useState(false);
   useEffect(() => {
-    const on = (e: Event) => setQ((e as CustomEvent<Ask & { resolve: (ok: boolean) => void }>).detail);
+    const on = (e: Event) => {
+      setQ((e as CustomEvent<Ask & { resolve: (ok: boolean) => void }>).detail);
+      setOpen(true);
+    };
     addEventListener('orla-ask', on);
     return () => removeEventListener('orla-ask', on);
   }, []);
   const answer = (ok: boolean) => {
+    if (!open) return;
     q?.resolve(ok);
-    setQ(null);
+    setOpen(false);
   };
   return (
-    <ConfirmDialog open={q !== null} title={q?.title ?? ''} confirm={q?.confirm ?? 'OK'} danger={q?.danger ?? true} onConfirm={() => answer(true)} onClose={() => answer(false)}>
+    <ConfirmDialog open={open} title={q?.title ?? ''} confirm={q?.confirm ?? 'OK'} danger={q?.danger ?? true} onConfirm={() => answer(true)} onClose={() => answer(false)}>
       {q?.body}
     </ConfirmDialog>
   );

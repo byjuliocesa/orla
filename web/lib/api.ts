@@ -151,7 +151,7 @@ export const api = {
   setLibraryKey: (privateKey: string) => call<LibraryKey>('PUT', '/v1/library/key', { private: privateKey }),
   removeLibraryKey: () => call<LibraryKey>('DELETE', '/v1/library/key'),
   libraryAuto: (auto: boolean) => call<LibraryStatus>('PATCH', '/v1/library', { auto }),
-  libraryAction: (action: 'connect' | 'sync' | 'disconnect' | 'adopt' | 'move', body?: { remote?: string; from?: string; name?: string; to?: string }) =>
+  libraryAction: (action: 'connect' | 'sync' | 'disconnect' | 'adopt' | 'move' | 'release', body?: { remote?: string; from?: string; name?: string; to?: string }) =>
     call<LibraryStatus>('POST', `/v1/library/${action}`, body),
   saveSession: (session: string) => call<SavedSession>('POST', `/v1/sessions/${session}/save`),
   openSaved: (key: string, cwd: string) => call<Session>('POST', '/v1/library/open', { key, cwd }),

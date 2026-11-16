@@ -970,3 +970,125 @@
     width: min(300px, calc(100vw - 32px));
   }
 }
+
+/* ---------- Orla's modal: a card over the sea ---------- */
+
+/* A question should not wait on the tide: this sea rises faster than the first visit's. */
+.sd .sb {
+  transition-duration: 0.8s;
+}
+.sd-card {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8vh;
+  animation: ob-card-in 380ms var(--ease-out) 60ms both;
+}
+.sd[data-leaving] .sd-card {
+  animation: ob-card-out 260ms var(--ease-out) both;
+}
+.sd[data-leaving]::backdrop {
+  animation: ob-dim 320ms var(--ease-out) reverse both;
+}
+.sd-card.confirm {
+  max-width: min(400px, 100%);
+  /* The dialog itself once, the confirm box kept margin: auto; on this card it pushed it down. */
+  margin: 0 0 8vh;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-card,
+  .sd[data-leaving] .sd-card {
+    animation: none;
+  }
+}
+
+/* MCP, empty: the agent wired to the tools it reaches, each lighting in turn. */
+.mc-art {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.mc-art-agent {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--raise);
+  box-shadow: 0 0 0 1px var(--press);
+}
+.mc-art-wire {
+  width: 34px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--edge) 0 4px, transparent 4px 7px);
+  animation: mc-flow 1.2s linear infinite;
+  background-size: 14px 1px;
+}
+.mc-art-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mc-art-tools i {
+  width: 28px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--raise);
+  box-shadow: 0 0 0 1px var(--press);
+  animation: fl-empty-glow 3s ease-in-out infinite;
+}
+.mc-art-tools i:nth-child(2) {
+  animation-delay: 1s;
+}
+.mc-art-tools i:nth-child(3) {
+  animation-delay: 2s;
+}
+@keyframes mc-flow {
+  to {
+    background-position: 14px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-art-wire,
+  .mc-art-tools i {
+    animation: none;
+  }
+}
+
+/* The MCP form, in its dialog. */
+.sd-card.mc-dialog {
+  max-width: 480px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--sea-crest), 0.1),
+    0 24px 60px rgba(2, 6, 9, 0.55);
+}
+.mc-dialog .mc-form {
+  padding: 24px 24px 20px;
+}
+.mc-dialog h2 {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Skills: who loads each one, and its action, both always in view. */
+.sk-list .sy-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sk-list .sy-acts,
+.sk-list .sy-row:hover .sy-meta,
+.sk-list .sy-row:focus-within .sy-meta {
+  opacity: 1;
+}
+.sk-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+@media (max-width: 520px) {
+  .sk-list .sy-side {
+    justify-content: space-between;
+    width: 100%;
+  }
+}

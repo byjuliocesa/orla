@@ -72,6 +72,11 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
 
   if (!st) return <div className="au-wrap" role="status" aria-label="Reading the library" />;
 
+  const release = async (e: LibraryEntry) => {
+    const ok = await ask({ title: `Remove ${e.name} from the library?`, body: 'It stays on this machine and leaves your other machines at their next sync.', confirm: 'Remove', danger: true });
+    if (ok) await run('release', { from: e.place, name: e.name }, e.place + e.name);
+  };
+
   if (st.remote && st.entries.length === 0 && st.outside.length === 0 && st.sessions.length === 0)
     return (
       <EmptyState title="No skills yet">
@@ -91,14 +96,12 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
           {st.entries.length === 0 ? (
             <p className="au-note sy-empty">None yet. Add one from below.</p>
           ) : (
-            <ul className="au-list">
+            <ul className="au-list sk-list">
               {st.entries.map((e) => (
                 <Row key={e.place + e.name} e={e}>
-                  {e.place !== 'shared' && e.place !== 'automations' && (
-                    <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('move', { from: e.place, name: e.name, to: 'shared' }, e.place + e.name)}>
-                      For all agents
-                    </button>
-                  )}
+                  <button type="button" className="btn sk-btn" disabled={!!busy} onClick={() => void release(e)}>
+                    Remove
+                  </button>
                 </Row>
               ))}
             </ul>
@@ -110,13 +113,13 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
             <div className="sy-head">
               <h3>Only on this machine</h3>
             </div>
-            <ul className="au-list">
+            <ul className="au-list sk-list">
               {st.outside.map((e) => {
                 const key = e.place + e.name;
                 return (
                   <Row key={key} e={e}>
-                    <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: e.place === 'automations' ? 'automations' : 'shared' }, key)}>
-                      Add to library
+                    <button type="button" className="btn sk-btn" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: e.place === 'automations' ? 'automations' : 'shared' }, key)}>
+                      {busy === key ? 'Adding…' : 'Add to library'}
                     </button>
                   </Row>
                 );

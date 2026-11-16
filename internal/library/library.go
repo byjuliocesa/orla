@@ -269,6 +269,50 @@ func Move(root, home, from, name, to string) error {
 	return err
 }
 
+// Release takes an entry out of the library and leaves it on this machine only, in the folder
+// its agent loads it from: a shared skill goes to Claude Code's. Other machines lose it at their
+// next sync.
+func Release(root, home, place, name string) error {
+	if !clean(name) {
+		return fmt.Errorf("%q is not a folder name", name)
+	}
+	var dir string
+	switch place {
+	case Automations:
+		dir = automationsDir(home)
+	case Shared:
+		dir = agentDir(home, Agents[0])
+	default:
+		a, ok := agent(place)
+		if !ok {
+			return fmt.Errorf("the library has no %q", place)
+		}
+		dir = agentDir(home, a)
+	}
+	src, dst := filepath.Join(root, place, name), filepath.Join(dir, name)
+	if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
+		return fmt.Errorf("the library has no %s in %s", name, place)
+	}
+	// Where it goes is, as a rule, the library's own link to it.
+	if fi, err := os.Lstat(dst); err == nil {
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return fmt.Errorf("%s already has a folder named %s", dir, name)
+		}
+		if err := os.Remove(dst); err != nil {
+			return err
+		}
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(src, dst); err != nil {
+		return err
+	}
+	prune(root, home)
+	_, err := Entries(root, home)
+	return err
+}
+
 func agent(name string) (Agent, bool) {
 	for _, a := range Agents {
 		if a.Name == name {

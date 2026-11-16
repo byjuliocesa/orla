@@ -312,8 +312,8 @@ export const Bolt = () => (
 export const Books = () => (
   <Icon>
     <rect x="2.5" y="3" width="3" height="10" rx="0.6" />
-    <rect x="6.5" y="3" width="3" height="10" rx="0.6" />
-    <path d="m10.6 3.6 2.6-.7 2 9.3-2.6.7z" />
+    <rect className="i-book" x="6.5" y="3" width="3" height="10" rx="0.6" />
+    <path className="i-lean" d="m10.6 3.6 2.6-.7 2 9.3-2.6.7z" />
   </Icon>
 );
 

@@ -216,7 +216,8 @@ export function FlowView({ session, runs, onChanged }: { session: Session; runs:
   );
 }
 
-function FlowEmpty({ onNew }: { onNew: () => void }) {
+/** No flows: the same picture in a session's Flow tab and in the Library. */
+export function FlowEmpty({ onNew, text = 'The steps the AI follows for a kind of task.' }: { onNew?: () => void; text?: string }) {
   return (
     <div className="fl-empty-wrap">
       <div className="fl-empty">
@@ -237,11 +238,13 @@ function FlowEmpty({ onNew }: { onNew: () => void }) {
           </span>
         </div>
         <h2>No flows yet</h2>
-        <p>The steps the AI follows for a kind of task.</p>
-        <button type="button" className="btn btn-primary" onClick={onNew}>
-          <Plus />
-          New flow
-        </button>
+        <p>{text}</p>
+        {onNew && (
+          <button type="button" className="btn btn-primary" onClick={onNew}>
+            <Plus />
+            New flow
+          </button>
+        )}
       </div>
     </div>
   );

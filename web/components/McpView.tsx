@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import type { McpInput, McpList, McpServer, McpView as Server } from '@/lib/types';
 import { ask } from './ConfirmDialog';
 import { EmptyState } from './EmptyState';
+import { SeaDialog } from './SeaDialog';
 import { Pencil, Plus, Trash } from './Icons';
 import { toast } from './Toast';
 
@@ -56,10 +57,38 @@ export function McpView() {
   };
 
   if (!list) return <div className="au-wrap" role="status" aria-label="Reading the MCP servers" />;
-  if (list.servers.length === 0 && list.outside.length === 0 && editing === null)
+  const editingServer = list.servers.find((s) => s.name === editing);
+  const dialog = (
+    <SeaDialog open={editing !== null} onClose={() => setEditing(null)} busy={busy !== null && busy === (editing ?? '')} labelledBy="mc-title" className="mc-dialog">
+      {editing !== null && (
+        <McpForm
+          key={editing}
+          server={editingServer}
+          busy={busy === editing}
+          onCancel={() => setEditing(null)}
+          onSave={async (name, x) => (await act(editing, () => api.saveMcp(name, x))) && setEditing(null)}
+        />
+      )}
+    </SeaDialog>
+  );
+
+  if (list.servers.length === 0 && list.outside.length === 0)
     return (
+      <>
+      {dialog}
       <EmptyState
         title="No MCP servers yet"
+        art={
+          <span className="mc-art" aria-hidden="true">
+            <span className="mc-art-agent" />
+            <span className="mc-art-wire" />
+            <span className="mc-art-tools">
+              <i />
+              <i />
+              <i />
+            </span>
+          </span>
+        }
         action={
           <button type="button" className="btn btn-primary" onClick={() => setEditing('')}>
             <Plus />
@@ -69,33 +98,27 @@ export function McpView() {
       >
         Tools the agent reaches, like VX Work. Their keys travel encrypted to your other machines.
       </EmptyState>
+      </>
     );
 
   return (
     <div className="au-wrap">
+      {dialog}
       <div className="au-col sy-col">
         <section className="au-section">
           <div className="sy-head">
             <h3>In the library</h3>
-            {editing === null && (
-              <button type="button" className="fl-act" onClick={() => setEditing('')}>
-                <Plus />
-                Add
-              </button>
-            )}
+            <button type="button" className="fl-act" onClick={() => setEditing('')}>
+              <Plus />
+              Add
+            </button>
           </div>
           {list.locked && <p className="au-note mc-note">This machine cannot read the keys yet. They open once another machine that can syncs.</p>}
-          {editing === '' && <McpForm busy={busy === ''} onCancel={() => setEditing(null)} onSave={async (name, s) => (await act('', () => api.saveMcp(name, s))) && setEditing(null)} />}
-          {list.servers.length === 0 && editing !== '' ? (
+          {list.servers.length === 0 ? (
             <p className="au-note sy-empty">None yet. Add one, or move in one Claude already has.</p>
           ) : (
             <ul className="au-list">
-              {list.servers.map((s) =>
-                editing === s.name ? (
-                  <li key={s.name} className="mc-edit">
-                    <McpForm server={s} busy={busy === s.name} onCancel={() => setEditing(null)} onSave={async (name, x) => (await act(s.name, () => api.saveMcp(name, x))) && setEditing(null)} />
-                  </li>
-                ) : (
+              {list.servers.map((s) => (
                   <li key={s.name} className="au-row sy-row">
                     <div className="au-main">
                       <span className="au-name au-name-static">
@@ -121,8 +144,7 @@ export function McpView() {
                       </span>
                     </div>
                   </li>
-                ),
-              )}
+                ))}
             </ul>
           )}
         </section>
@@ -192,6 +214,7 @@ function McpForm({ server, busy, onSave, onCancel }: { server?: Server; busy: bo
 
   return (
     <form className="mc-form" onSubmit={submit} aria-busy={busy}>
+      <h2 id="mc-title">{server ? `Edit ${server.name}` : 'Add an MCP server'}</h2>
       <fieldset className="sy-fieldset" disabled={busy}>
         {!server && (
           <>
