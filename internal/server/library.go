@@ -65,6 +65,7 @@ func (s *Server) generateLibraryKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
+	s.applyMCPLater()
 	writeJSON(w, http.StatusOK, key)
 }
 
@@ -86,6 +87,7 @@ func (s *Server) setLibraryKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
+	s.applyMCPLater()
 	writeJSON(w, http.StatusOK, key)
 }
 

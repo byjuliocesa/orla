@@ -835,3 +835,63 @@
     animation-duration: 2s;
   }
 }
+
+/* MCP: the library's servers. */
+.mc-where {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.mc-state {
+  font-size: 12px;
+  color: var(--faint);
+}
+.mc-state[data-state='locked'],
+.mc-state[data-state='taken'] {
+  color: var(--wait-text);
+  cursor: help;
+}
+.mc-state[data-state='error'] {
+  color: var(--fail-text);
+  cursor: help;
+}
+.mc-note {
+  margin: 0 10px 10px;
+}
+.mc-form {
+  padding: 4px 10px 16px;
+}
+.mc-form .sy-fieldset {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+/* .sy-input grows along a row; in this column that would squash it. */
+.mc-form .sy-input {
+  flex: none;
+  margin-bottom: 12px;
+}
+.mc-mono {
+  font-family: var(--mono);
+}
+.mc-key {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 8px;
+}
+.mc-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.mc-edit {
+  list-style: none;
+}
+@media (max-width: 520px) {
+  .mc-key {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

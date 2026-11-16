@@ -1,4 +1,4 @@
-import type { AgentInfo, Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
+import type { AgentInfo, McpInput, McpList, Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -143,6 +143,10 @@ export const api = {
   cancelLogin: (id: string) => call<void>('DELETE', `/v1/agents/${id}/login`),
   library: () => call<LibraryStatus>('GET', '/v1/library'),
   libraryKey: () => call<LibraryKey>('GET', '/v1/library/key'),
+  mcp: () => call<McpList>('GET', '/v1/mcp'),
+  saveMcp: (name: string, server: McpInput) => call<McpList>('PUT', `/v1/mcp/${encodeURIComponent(name)}`, server),
+  adoptMcp: (name: string) => call<McpList>('POST', `/v1/mcp/${encodeURIComponent(name)}/adopt`),
+  removeMcp: (name: string) => call<McpList>('DELETE', `/v1/mcp/${encodeURIComponent(name)}`),
   generateLibraryKey: () => call<LibraryKey>('POST', '/v1/library/key'),
   setLibraryKey: (privateKey: string) => call<LibraryKey>('PUT', '/v1/library/key', { private: privateKey }),
   removeLibraryKey: () => call<LibraryKey>('DELETE', '/v1/library/key'),

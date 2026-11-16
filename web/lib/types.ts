@@ -224,6 +224,38 @@ export interface LibraryAgent {
 }
 
 /** The library and how it stands with its repository. */
+/** An MCP server the library keeps; headers and env name the values kept encrypted. */
+export interface McpServer {
+  name: string;
+  type: 'http' | 'sse' | 'stdio';
+  url?: string;
+  command?: string;
+  args?: string[];
+  headers?: string[];
+  env?: string[];
+}
+
+/** ready: Claude has it. locked: this machine cannot read its keys yet. taken: Claude has another by that name. */
+export interface McpView extends McpServer {
+  state: 'ready' | 'locked' | 'taken' | 'error';
+  error?: string;
+}
+
+export interface McpList {
+  servers: McpView[];
+  outside: McpServer[];
+  locked: boolean;
+}
+
+export interface McpInput {
+  type: McpServer['type'];
+  url?: string;
+  command?: string;
+  args?: string[];
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+}
+
 export interface LibraryStatus {
   dir: string;
   remote: string;

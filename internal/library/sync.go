@@ -29,10 +29,16 @@ type Manager struct {
 	// leaves SSH to the machine's own setup alone.
 	Keys string
 	Log  *slog.Logger
+	// Claude answers the claude executable, for setting up the library's MCP servers; nil
+	// leaves Claude's config alone.
+	Claude func() string
 
 	op sync.Mutex // one git operation at a time
 	mu sync.Mutex // guards st, which Status reads while an operation runs
 	st state
+
+	mcpMu   sync.Mutex        // one change to the MCP servers at a time
+	mcpErrs map[string]string // why a server could not be set up in Claude, by name
 }
 
 type state struct {
@@ -256,8 +262,14 @@ func (m *Manager) syncLocked(ctx context.Context, first bool) (err error) {
 	if _, err := m.git(ctx, "push", "-u", "origin", "HEAD"); err != nil {
 		return err
 	}
-	_, err = Entries(m.Root, m.Home)
-	return err
+	if _, err = Entries(m.Root, m.Home); err != nil {
+		return err
+	}
+	// What another machine changed in the MCP servers reaches Claude here.
+	if err := m.ApplyMCP(ctx); err != nil && m.Log != nil {
+		m.Log.Warn("library mcp", "err", err)
+	}
+	return nil
 }
 
 // ConflictError lists the files both sides changed.

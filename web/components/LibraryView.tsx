@@ -5,12 +5,13 @@ import { layout } from '@/lib/flowlayout';
 import type { Flow, Session } from '@/lib/types';
 import { AutomationsView } from './AutomationsView';
 import { ask } from './ConfirmDialog';
-import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, FlowIcon, SyncIcon, Trash } from './Icons';
+import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, FlowIcon, PuzzleIcon, SyncIcon, Trash } from './Icons';
+import { McpView } from './McpView';
 import { SyncView, syncWords, useLibrary } from './SyncView';
 import { useNow } from '@/lib/hooks';
 import { toast } from './Toast';
 
-type Tab = 'flows' | 'automations' | 'sync';
+type Tab = 'flows' | 'automations' | 'mcp' | 'sync';
 const TAB_KEY = 'orla.library.tab';
 
 /**
@@ -21,7 +22,7 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
   const [tab, setTabState] = useState<Tab>(() => {
     try {
       const t = localStorage.getItem(TAB_KEY);
-      return t === 'automations' || t === 'sync' ? t : 'flows';
+      return t === 'automations' || t === 'mcp' || t === 'sync' ? t : 'flows';
     } catch {
       return 'flows';
     }
@@ -34,7 +35,7 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
   };
   const [lib, setLib, reloadLib] = useLibrary();
   const now = useNow(15_000);
-  const order: Tab[] = ['flows', 'automations', 'sync'];
+  const order: Tab[] = ['flows', 'automations', 'mcp', 'sync'];
   const [from, setFrom] = useState<'left' | 'right'>('left');
   const pick = (t: Tab) => {
     setFrom(order.indexOf(t) >= order.indexOf(tab) ? 'right' : 'left');
@@ -59,6 +60,10 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
               <Bolt />
               Automations
             </button>
+            <button className="head-tab" aria-pressed={tab === 'mcp'} onClick={() => pick('mcp')}>
+              <PuzzleIcon />
+              MCP
+            </button>
             <button className="head-tab" aria-pressed={tab === 'sync'} onClick={() => pick('sync')}>
               <SyncIcon />
               Sync
@@ -77,6 +82,8 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
           <FlowLibrary sessions={sessions} />
         ) : tab === 'automations' ? (
           <AutomationsView sessions={sessions} />
+        ) : tab === 'mcp' ? (
+          <McpView />
         ) : (
           <SyncView st={lib} setSt={setLib} reload={reloadLib} openSession={openSession} />
         )}
