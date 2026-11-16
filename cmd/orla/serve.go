@@ -98,7 +98,7 @@ func serve(args []string) error {
 	shelf.ShareKey()
 	// Each run finds its repository's environment files in place.
 	sessions.BeforeRun(func(ctx context.Context, cwd string) {
-		if err := shelf.WriteEnvs(ctx, cwd); err != nil {
+		if err := shelf.WriteEnvsAround(ctx, cwd); err != nil {
 			log.Warn("library env", "cwd", cwd, "err", err)
 		}
 	})

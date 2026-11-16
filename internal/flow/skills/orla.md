@@ -16,7 +16,9 @@ You may be running inside an Orla session right now: `ORLA_RUN` in your environm
 
 ## Sessions
 
-- A session is one conversation with the agent, in one folder. Each message is a run.
+- A session is one conversation with the agent, in one folder. Each message is a run, and each
+  run starts Claude Code afresh, resuming the conversation: a new MCP server, skill, setting or
+  Claude version applies from the next message, with no restart.
 - A permission prompt reaches the owner in Orla, in the browser or with `orla approve`. A request
   nobody answers is denied after 10 minutes.
 - A session can start in a worktree of its own: a branch `orla/<name>` in a folder under
@@ -58,8 +60,10 @@ Library tabs:
   failed. A bare token in an `Authorization` header gets `Bearer` in front. *Move in* brings a
   server Claude already has into the library, key and all.
 - **Environments**: named sets of variables, each linked to repositories by `host/owner/name`
-  and a file (`.env` by default). Before each run in a checkout of a linked repository, Orla
-  writes the file there and keeps it out of git through `.git/info/exclude`. Several
+  and a file (`.env` by default). Before and after each run, Orla writes the file into every
+  checkout of a linked repository it finds: the session's folder and the repositories up to two
+  levels below it, so a repository cloned during a run has its file by the next message. It
+  keeps the file out of git through `.git/info/exclude`. Several
   environments for one file merge; where they share a key, the one linked to fewer repositories
   wins. A file Orla did not write (it starts with Orla's own comment line) is never overwritten.
 

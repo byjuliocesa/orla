@@ -59,7 +59,8 @@ type Service struct {
 	approvalsURL string
 	approvalWait time.Duration
 
-	// beforeRun readies a session's folder before each run, such as its environment files.
+	// beforeRun readies a session's folder before each run and again after it, such as its
+	// environment files.
 	beforeRun func(ctx context.Context, cwd string)
 
 	hookMu sync.Mutex
@@ -90,7 +91,7 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 
 // ApprovalsAt has headless runs send permission prompts to Orla, at url followed by the run id.
 // Call it before the first run.
-// BeforeRun sets what readies a session's folder before each of its runs.
+// BeforeRun sets what readies a session's folder before and after each of its runs.
 func (s *Service) BeforeRun(f func(ctx context.Context, cwd string)) { s.beforeRun = f }
 
 func (s *Service) ApprovalsAt(url string) { s.approvalsURL = url }
@@ -245,6 +246,10 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 		// Recording is never cancelled: a run stopped midway, or by shutdown, must still store
 		// what it did and how it ended.
 		record := context.WithoutCancel(runCtx)
+		if s.beforeRun != nil {
+			// After the run too: a repository it cloned gets its files before the next message.
+			defer s.beforeRun(record, sess.Cwd)
+		}
 		outcome := runner.Run(runCtx, spec,
 			func(out cli.Out) { s.publish(record, sess, run.ID, out.Type, out.Data) },
 			func(native string) {

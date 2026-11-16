@@ -207,6 +207,53 @@ func (m *Manager) RemoveEnv(name string) error {
 	return m.writeEnvs(slices.DeleteFunc(list, func(e Environment) bool { return e.Name == name }))
 }
 
+// WriteEnvsAround writes the environments of every repository a session can reach from its
+// folder: the one it is in, and those up to two levels below it, so a session started in a
+// parent folder, or one that just cloned a repository, finds its files too.
+func (m *Manager) WriteEnvsAround(ctx context.Context, dir string) error {
+	var errs []error
+	for _, d := range checkoutsAround(ctx, dir) {
+		if err := m.WriteEnvs(ctx, d); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// checkoutsAround is dir, when it is in a repository, and the repositories up to two levels
+// below it. Hidden folders and dependency folders are not looked into.
+func checkoutsAround(ctx context.Context, dir string) []string {
+	var out []string
+	if _, err := gitOut(ctx, dir, "rev-parse", "--show-toplevel"); err == nil {
+		out = append(out, dir)
+	}
+	var walk func(d string, depth int)
+	walk = func(d string, depth int) {
+		items, err := os.ReadDir(d)
+		if err != nil {
+			return
+		}
+		for _, it := range items {
+			n := it.Name()
+			if !it.IsDir() || strings.HasPrefix(n, ".") || n == "node_modules" || n == "vendor" {
+				continue
+			}
+			sub := filepath.Join(d, n)
+			if _, err := os.Stat(filepath.Join(sub, ".git")); err == nil {
+				if !slices.Contains(out, sub) {
+					out = append(out, sub)
+				}
+				continue
+			}
+			if depth < 2 {
+				walk(sub, depth+1)
+			}
+		}
+	}
+	walk(dir, 1)
+	return out
+}
+
 // WriteEnvs writes the environments linked to dir's repository into dir, a checkout or a
 // worktree of it. Several environments for one file merge; where they share a key, the one
 // linked to fewer repositories, the more specific, wins. A file Orla did not write is left

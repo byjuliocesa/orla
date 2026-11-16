@@ -75,3 +75,24 @@ func TestWriteEnvsMergesAndLeavesOwnFilesAlone(t *testing.T) {
 		t.Fatalf("the owner's .env changed: %s", b)
 	}
 }
+
+func TestWriteEnvsAroundReachesReposBelow(t *testing.T) {
+	ctx := context.Background()
+	m := keyed(t, t.TempDir())
+	home := t.TempDir()
+	repo := filepath.Join(home, "repos", "app")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, repo, "init", "-q")
+	gitT(t, repo, "remote", "add", "origin", "git@github.com:you/app.git")
+	if err := m.SaveEnv(ctx, "app", EnvInput{Values: map[string]string{"A": "1"}, Links: []EnvLink{{"github.com/you/app", ".env"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.WriteEnvsAround(ctx, home); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repo, ".env")); !strings.Contains(string(b), "A=1") {
+		t.Fatalf("the repository two levels down got no .env: %q", b)
+	}
+}

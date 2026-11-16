@@ -70,7 +70,7 @@ func (s *Server) rewriteEnvs(r *http.Request) {
 			continue
 		}
 		seen[x.Cwd] = true
-		if err := s.shelf.WriteEnvs(r.Context(), x.Cwd); err != nil {
+		if err := s.shelf.WriteEnvsAround(r.Context(), x.Cwd); err != nil {
 			s.log.Warn("library env", "cwd", x.Cwd, "err", err)
 		}
 	}
