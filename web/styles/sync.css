@@ -947,9 +947,6 @@
 .sy-pop-problem ul {
   margin: 0;
 }
-.sy-pop-now {
-  justify-content: center;
-}
 .sy-pop-auto {
   display: flex;
   align-items: center;
@@ -957,18 +954,13 @@
   font-size: 13px;
   color: var(--dim);
 }
-.sy-pop-off {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 12px;
-  color: var(--faint);
-  cursor: pointer;
+.sy-pop-acts {
+  display: flex;
+  gap: 8px;
 }
-.sy-pop-off:hover {
-  color: var(--fail-text);
+.sy-pop-acts .btn {
+  flex: 1;
+  justify-content: center;
 }
 /* On a phone the chip sits under the tabs, at the left edge. */
 @media (max-width: 720px) {

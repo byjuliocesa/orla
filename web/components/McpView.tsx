@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import type { McpInput, McpList, McpServer, McpView as Server } from '@/lib/types';
 import { ask } from './ConfirmDialog';
+import { EmptyState } from './EmptyState';
 import { Pencil, Plus, Trash } from './Icons';
 import { toast } from './Toast';
 
@@ -55,6 +56,20 @@ export function McpView() {
   };
 
   if (!list) return <div className="au-wrap" role="status" aria-label="Reading the MCP servers" />;
+  if (list.servers.length === 0 && list.outside.length === 0 && editing === null)
+    return (
+      <EmptyState
+        title="No MCP servers yet"
+        action={
+          <button type="button" className="btn btn-primary" onClick={() => setEditing('')}>
+            <Plus />
+            Add server
+          </button>
+        }
+      >
+        Tools the agent reaches, like VX Work. Their keys travel encrypted to your other machines.
+      </EmptyState>
+    );
 
   return (
     <div className="au-wrap">

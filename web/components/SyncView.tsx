@@ -5,6 +5,7 @@ import { ago, shortPath } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
 import type { LibraryEntry, LibraryStatus, SavedSession } from '@/lib/types';
 import { ask } from './ConfirmDialog';
+import { EmptyState } from './EmptyState';
 import { Copy, Pencil, RepoIcon, SyncIcon, Trash } from './Icons';
 import { toast } from './Toast';
 
@@ -70,6 +71,13 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
   };
 
   if (!st) return <div className="au-wrap" role="status" aria-label="Reading the library" />;
+
+  if (st.remote && st.entries.length === 0 && st.outside.length === 0 && st.sessions.length === 0)
+    return (
+      <EmptyState title="No skills yet">
+        What the agent knows how to do. A skill in ~/.claude/skills shows here, ready to add to the library.
+      </EmptyState>
+    );
 
   return (
     <div className="au-wrap">
@@ -515,17 +523,19 @@ export function SyncChip({ st, setSt, onConnect }: { st: LibraryStatus; setSt: (
               </p>
             </div>
           )}
-          <button type="button" className="btn btn-primary sy-pop-now" disabled={syncing} onClick={() => void act(() => api.libraryAction('sync'), 'sync')}>
-            <SyncIcon />
-            {syncing ? 'Syncing…' : 'Sync now'}
-          </button>
           <label className="sy-pop-auto">
             <button type="button" role="switch" className="sk-switch" aria-checked={st.auto} onClick={() => void act(() => api.libraryAuto(!st.auto), 'auto')} />
             Sync on its own
           </label>
-          <button type="button" className="sy-pop-off" disabled={!!busy} onClick={() => void disconnect()}>
-            Stop syncing
-          </button>
+          <div className="sy-pop-acts">
+            <button type="button" className="btn" disabled={!!busy} onClick={() => void disconnect()}>
+              Stop syncing
+            </button>
+            <button type="button" className="btn btn-primary sy-pop-now" disabled={syncing} onClick={() => void act(() => api.libraryAction('sync'), 'sync')}>
+              <SyncIcon />
+              {syncing ? 'Syncing…' : 'Sync now'}
+            </button>
+          </div>
         </div>
       )}
     </div>

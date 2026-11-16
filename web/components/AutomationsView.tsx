@@ -1,3 +1,4 @@
+import { EmptyState } from './EmptyState';
 import '@/styles/automations.css';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -63,23 +64,19 @@ export function AutomationsView({ session, sessions }: { session?: Session; sess
 
   if (list.length === 0) {
     return (
-      <div className="au-wrap au-empty-wrap">
-        <div className="au-empty">
-          <span className="au-empty-art" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <h2>No automations yet</h2>
-          <p>Scripts Orla runs for you: watching, checking, approving by a rule. They cost no tokens.</p>
-          {session && (
+      <EmptyState
+        title="No automations yet"
+        action={
+          session && (
             <button type="button" className="btn btn-primary" onClick={newOne}>
               <Plus />
               New automation
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      >
+        Scripts Orla runs for you: watching, checking, approving by a rule. They cost no tokens.
+      </EmptyState>
     );
   }
 

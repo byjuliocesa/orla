@@ -6,6 +6,7 @@ import type { Flow, Session } from '@/lib/types';
 import { AutomationsView } from './AutomationsView';
 import { ask } from './ConfirmDialog';
 import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, Books, FlowIcon, PuzzleIcon, Trash } from './Icons';
+import { EmptyState } from './EmptyState';
 import { McpView } from './McpView';
 import { SyncChip, SyncView, useLibrary } from './SyncView';
 import { toast } from './Toast';
@@ -112,6 +113,12 @@ function FlowLibrary({ sessions }: { sessions: Session[] }) {
   };
 
   if (!flows) return <div className="au-wrap" role="status" aria-label="Reading the flows" />;
+  if (flows.length === 0 && archived.length === 0)
+    return (
+      <EmptyState title="No flows yet">
+        How each kind of task is done, step by step. Create one from a session’s Flow tab, or with /newflow.
+      </EmptyState>
+    );
   const followers = (f: Flow) => sessions.filter((s) => s.flows?.includes(f.name));
 
   return (
