@@ -16,6 +16,8 @@ interface Ctx {
   session: string;
   /** Opens a picture from a tool result in the run's viewer. */
   openImage?: (id: string) => void;
+  /** The run's pictures, each once; a group shows only its own among them. */
+  imageKeys?: Set<string>;
   cwd: string;
   now: number;
   /** Steps made by events after this seq arrived live, and enter with motion. */
@@ -35,7 +37,7 @@ interface Ctx {
 export function RunBlock({ run, ctx }: { run: RunView; limits?: Limits; ctx: Omit<Ctx, 'runOpen'> }) {
   const [image, setImage] = useState<string | null>(null);
   const pictures = imagesOf(run.steps);
-  const c: Ctx = { ...ctx, runOpen: run.status === 'running', openImage: setImage };
+  const c: Ctx = { ...ctx, runOpen: run.status === 'running', openImage: setImage, imageKeys: new Set(pictures.map((p) => p.key)) };
   const shown = pictures.find((a) => a.key === image);
   const sent = parsePrompt(run.prompt);
   const answer = run.steps.flatMap((s) => (s.kind === 'message' ? [s.text.trim()] : [])).join('\n\n');
@@ -98,13 +100,17 @@ export function RunBlock({ run, ctx }: { run: RunView; limits?: Limits; ctx: Omi
 /** Every picture the run's tools returned, in order, as the viewer's items. */
 function imagesOf(steps: Step[]): Attachment[] {
   const out: Attachment[] = [];
+  // A screenshot found on disk and then read by the agent is one picture, shown once.
+  const shown = new Set<string>();
   const walk = (list: Step[]) => {
     for (const s of list) {
       if (s.kind !== 'tool') continue;
       // A picture the agent read is named after its file; image-1.png says nothing.
       const path = (s.input as { file_path?: unknown } | null)?.file_path;
       const file = typeof path === 'string' ? path.split('/').pop() : undefined;
+      if (typeof path === 'string' && shown.has(path)) continue;
       for (const i of s.result?.images ?? []) {
+        if (i.path) shown.add(i.path);
         const name = file || i.name;
         out.push({ key: i.id, name, type: i.type, size: i.size, progress: 1, upload: { id: i.id, name, type: i.type, size: i.size, path: '' } });
       }
@@ -117,7 +123,7 @@ function imagesOf(steps: Step[]): Attachment[] {
 
 /** The pictures some steps returned, as a row of thumbnails that open the viewer. */
 function StepImages({ steps, ctx }: { steps: Step[]; ctx: Ctx }) {
-  const pics = imagesOf(steps);
+  const pics = imagesOf(steps).filter((p) => !ctx.imageKeys || ctx.imageKeys.has(p.key));
   if (!pics.length || !ctx.openImage) return null;
   return (
     <ul className="step-images" aria-label="Images">

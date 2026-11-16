@@ -24,9 +24,10 @@ You may be running inside an Orla session right now: `ORLA_RUN` in your environm
 - A session can start in a worktree of its own: a branch `orla/<name>` in a folder under
   `~/.local/share/orla/worktrees`. Its Changes tab commits, merges back and removes it. Discarded
   work goes to a git stash, never lost.
-- A picture a tool returns, such as a screenshot read with Read, shows in the timeline as a
-  thumbnail; a click opens a viewer that steps through every picture of the run (arrow keys).
-  A screenshot only shows there once the agent reads the file: taking it is not enough.
+- Pictures show in the timeline as thumbnails under the step that made them: one a tool returns
+  (a screenshot read with Read), and one a run writes to disk, found in the session's folder
+  (three levels down) and in the temporary folder (two), skipping hidden and dependency
+  folders. A click opens a viewer that steps through every picture of the run (arrow keys).
 - Terminals live on the server and keep running when the browser leaves.
 
 ## The agent

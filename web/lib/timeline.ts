@@ -29,6 +29,8 @@ export interface ResultImage {
   name: string;
   type: string;
   size: number;
+  /** Where the run wrote it, for a picture found on disk rather than returned by the tool. */
+  path?: string;
 }
 
 export interface ToolStep {

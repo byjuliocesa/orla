@@ -2,16 +2,10 @@ package session
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"mime"
-	"os"
-	"path/filepath"
 	"slices"
 	"sync"
 	"time"
@@ -68,6 +62,8 @@ type Service struct {
 	// media is where pictures from tool results are kept, one folder each, as uploads are;
 	// empty drops them.
 	media string
+	// scans follow, by run id, the pictures a run made on disk. Guarded by mu.
+	scans map[string]*scan
 
 	// beforeRun readies a session's folder before each run and again after it, such as its
 	// environment files.
@@ -308,7 +304,7 @@ func (s *Service) publish(ctx context.Context, sess store.Session, run, typ stri
 		s.unwatchFiles(sess.ID)
 	}
 	if typ == events.ToolResult {
-		data = s.keepImages(data)
+		data = s.withImages(run, sess.Cwd, data)
 	}
 	raw, err := json.Marshal(data)
 	if err != nil {
@@ -328,6 +324,16 @@ func (s *Service) publish(ctx context.Context, sess store.Session, run, typ stri
 	switch typ {
 	case events.RunStarted:
 		s.watchFiles(ctx, sess, run)
+		s.mu.Lock()
+		if s.scans == nil {
+			s.scans = map[string]*scan{}
+		}
+		s.scans[run] = &scan{since: time.Now(), seen: map[string]bool{}}
+		s.mu.Unlock()
+	case events.RunFinished:
+		s.mu.Lock()
+		delete(s.scans, run)
+		s.mu.Unlock()
 	case events.ToolResult:
 		s.mu.Lock()
 		if w := s.watchers[sess.ID]; w != nil {
@@ -381,47 +387,3 @@ func (s *Service) unwatchFiles(session string) {
 	}
 }
 
-// keepImages writes the pictures of a tool result to files and puts their ids in the event in
-// place of their data: an event stays small, and the browser fetches each picture as an upload.
-func (s *Service) keepImages(data any) any {
-	m, ok := data.(map[string]any)
-	if !ok {
-		return data
-	}
-	imgs, ok := m["images"].([]map[string]any)
-	if !ok {
-		return data
-	}
-	kept := []map[string]any{}
-	for i, img := range imgs {
-		b, err := base64.StdEncoding.DecodeString(fmt.Sprint(img["data"]))
-		if err != nil || s.media == "" {
-			continue
-		}
-		mt := fmt.Sprint(img["media_type"])
-		ext := ".png"
-		if e, _ := mime.ExtensionsByType(mt); len(e) > 0 {
-			ext = e[len(e)-1]
-		}
-		var r [12]byte
-		_, _ = rand.Read(r[:])
-		id := "upl_" + hex.EncodeToString(r[:])
-		dir := filepath.Join(s.media, id)
-		name := fmt.Sprintf("image-%d%s", i+1, ext)
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			s.log.Warn("keeping an image", "err", err)
-			continue
-		}
-		if err := os.WriteFile(filepath.Join(dir, name), b, 0o600); err != nil {
-			s.log.Warn("keeping an image", "err", err)
-			continue
-		}
-		kept = append(kept, map[string]any{"id": id, "name": name, "type": mt, "size": len(b)})
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	out["images"] = kept
-	return out
-}
