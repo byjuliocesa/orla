@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -150,11 +151,11 @@ func (s *Server) libraryAction(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.PathValue("action") {
 	case "connect":
-		err = m.Connect(r.Context(), body.Remote)
+		err = m.Connect(context.WithoutCancel(r.Context()), body.Remote)
 	case "sync":
-		err = m.Sync(r.Context())
+		err = m.Sync(context.WithoutCancel(r.Context()))
 	case "disconnect":
-		err = m.Disconnect(r.Context())
+		err = m.Disconnect(context.WithoutCancel(r.Context()))
 	case "adopt":
 		err = library.Adopt(m.Root, m.Home, body.From, body.Name, body.To)
 	case "move":

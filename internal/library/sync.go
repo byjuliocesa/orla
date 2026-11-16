@@ -102,11 +102,8 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	m.mu.Lock()
 	st := m.st
 	m.mu.Unlock()
-	if st.syncing {
-		// git holds its lock; asking it now would wait or fail.
-		s.State = "syncing"
-		return s, nil
-	}
+	// Reading the remote and branch takes no lock, so they show while a sync runs too: without
+	// them the page would take the library for unconnected.
 	if remote, err := m.git(ctx, "remote", "get-url", "origin"); err == nil {
 		s.Remote = redact(remote)
 	}
@@ -114,11 +111,16 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	if s.Remote == "" {
 		return s, nil
 	}
-	s.Pending = m.pending(ctx, s.Branch)
 	if !st.last.IsZero() {
 		t := st.last
 		s.LastSync = &t
 	}
+	if st.syncing {
+		// git holds the index lock; counting changes now would wait or fail.
+		s.State = "syncing"
+		return s, nil
+	}
+	s.Pending = m.pending(ctx, s.Branch)
 	switch {
 	case len(st.conflicts) > 0:
 		s.State, s.Error, s.Conflicts = "conflict", st.err, st.conflicts
@@ -234,6 +236,10 @@ func (m *Manager) syncLocked(ctx context.Context, first bool) (err error) {
 	m.setSyncing(true)
 	defer func() { m.setSyncing(false); m.done(err) }()
 
+	// This machine joins the keys' list before committing, so the change goes out in this sync.
+	if err := m.enroll(); err != nil && m.Log != nil {
+		m.Log.Warn("library mcp", "err", err)
+	}
 	if err := m.commit(ctx); err != nil {
 		return err
 	}
@@ -403,6 +409,12 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("git %s took more than 90 seconds and was stopped", args[0])
+		}
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("git %s was stopped before it finished", args[0])
+		}
 		msg := explain(errb.String(), err)
 		if refused(errb.String()) {
 			return "", &AccessError{msg}

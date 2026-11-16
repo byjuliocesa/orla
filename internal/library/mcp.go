@@ -127,15 +127,26 @@ func (m *Manager) writeServers(list []MCPServer) error {
 	return writeFile(m.mcpPath(mcpServers), append(b, '\n'), 0o644)
 }
 
+// readMachines answers each machine's key once, as "type base64", without the host after it.
 func (m *Manager) readMachines() []string {
+	keys, _ := m.machineLines()
+	return keys
+}
+
+// machineLines reads mcp/machines: the keys, and the lines that hold them, first of each only.
+func (m *Manager) machineLines() (keys, lines []string) {
 	b, _ := os.ReadFile(m.mcpPath(mcpMachines))
-	var out []string
 	for _, l := range strings.Split(string(b), "\n") {
-		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "#") && !slices.Contains(out, l) {
-			out = append(out, l)
+		l = strings.TrimSpace(l)
+		f := strings.Fields(l)
+		if len(f) < 2 || strings.HasPrefix(l, "#") {
+			continue
+		}
+		if k := f[0] + " " + f[1]; !slices.Contains(keys, k) {
+			keys, lines = append(keys, k), append(lines, l)
 		}
 	}
-	return out
+	return keys, lines
 }
 
 // own is this machine's public key, without its comment; empty when the library has none.
@@ -232,15 +243,20 @@ func (m *Manager) seal(values map[string]mcpValues) error {
 // enroll adds this machine's key to mcp/machines, so the values get encrypted to it too.
 func (m *Manager) enroll() error {
 	own := m.own()
-	if own == "" || slices.Contains(m.readMachines(), own) {
+	if own == "" {
 		return nil
 	}
 	b, _ := os.ReadFile(m.mcpPath(mcpMachines))
-	if len(b) > 0 && b[len(b)-1] != '\n' {
-		b = append(b, '\n')
+	keys, lines := m.machineLines()
+	if !slices.Contains(keys, own) {
+		host, _ := os.Hostname()
+		lines = append(lines, strings.TrimSpace(own+" "+host))
 	}
-	host, _ := os.Hostname()
-	return writeFile(m.mcpPath(mcpMachines), append(b, []byte(own+" "+host+"\n")...), 0o644)
+	want := strings.Join(lines, "\n") + "\n"
+	if string(b) == want {
+		return nil
+	}
+	return writeFile(m.mcpPath(mcpMachines), []byte(want), 0o644)
 }
 
 // MCP lists the library's servers and those Claude has outside it.

@@ -86,3 +86,22 @@ func TestMCPSecretsTravelEncrypted(t *testing.T) {
 		t.Fatal("secrets.age outlived its last server")
 	}
 }
+
+func TestEnrollListsEachMachineOnce(t *testing.T) {
+	m := keyed(t, t.TempDir())
+	for range 3 {
+		if err := m.enroll(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A file already holding the key twice is set straight.
+	b, _ := os.ReadFile(m.mcpPath(mcpMachines))
+	_ = os.WriteFile(m.mcpPath(mcpMachines), append(b, b...), 0o644)
+	if err := m.enroll(); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(m.mcpPath(mcpMachines))
+	if n := strings.Count(string(b), "\n"); n != 1 {
+		t.Fatalf("machines has %d lines:\n%s", n, b)
+	}
+}
