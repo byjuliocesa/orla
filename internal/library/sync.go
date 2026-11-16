@@ -403,7 +403,9 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 		"GIT_ALLOW_PROTOCOL=file:git:http:https:ssh",
 		"GCM_INTERACTIVE=never",
 	)
-	if os.Getenv("GIT_SSH_COMMAND") == "" {
+	// ShareKey may have set GIT_SSH_COMMAND for everything else; syncing keeps its own, which
+	// never waits on a prompt.
+	if !ownerSSH {
 		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND="+m.sshCommand())
 	}
 	var out, errb bytes.Buffer
@@ -427,17 +429,22 @@ func (m *Manager) gitIn(ctx context.Context, dir string, args ...string) (string
 // sshCommand is how git reaches an SSH remote: never asking, trying this machine's library key
 // beside its usual ones, and trusting a host the first time it is met (as a person answering
 // yes would), while refusing one whose key has changed since.
+// knownHosts lists where host keys are kept: hosts met are written to the first file; the
+// machine's own list is read too.
+func (m *Manager) knownHosts() string {
+	known := filepath.Join(m.Keys, "known_hosts")
+	if home, _ := os.UserHomeDir(); home != "" {
+		known += " " + filepath.Join(home, ".ssh", "known_hosts")
+	}
+	return known
+}
+
 func (m *Manager) sshCommand() string {
 	c := "ssh -o BatchMode=yes -o ConnectTimeout=15"
 	if m.Keys == "" {
 		return c
 	}
-	// Hosts met are written to the first file; the machine's own list is read too.
-	known := filepath.Join(m.Keys, "known_hosts")
-	if home, _ := os.UserHomeDir(); home != "" {
-		known += " " + filepath.Join(home, ".ssh", "known_hosts")
-	}
-	c += " -o StrictHostKeyChecking=accept-new -o " + shellQuote("UserKnownHostsFile="+known)
+	c += " -o StrictHostKeyChecking=accept-new -o " + shellQuote("UserKnownHostsFile="+m.knownHosts())
 	if _, err := os.Stat(m.keyPath()); err == nil {
 		c += " -i " + shellQuote(m.keyPath())
 	}

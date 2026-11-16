@@ -145,3 +145,20 @@ func TestProbeCountsTools(t *testing.T) {
 		t.Fatalf("without the key: %v", err)
 	}
 }
+
+func TestShareKeyHandsTheLibraryKeyToGit(t *testing.T) {
+	if ownerSSH {
+		t.Skip("GIT_SSH_COMMAND is set here; Orla leaves it alone")
+	}
+	t.Setenv("GIT_SSH_COMMAND", "")
+	m := keyed(t, t.TempDir()) // GenerateKey shares it
+	if got := os.Getenv("GIT_SSH_COMMAND"); !strings.Contains(got, m.keyPath()) {
+		t.Fatalf("GIT_SSH_COMMAND = %q", got)
+	}
+	if err := m.RemoveKey(); err != nil {
+		t.Fatal(err)
+	}
+	if _, set := os.LookupEnv("GIT_SSH_COMMAND"); set {
+		t.Fatal("the removed key is still shared")
+	}
+}

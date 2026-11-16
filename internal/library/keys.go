@@ -20,6 +20,25 @@ const (
 
 func (m *Manager) keyPath() string { return filepath.Join(m.Keys, keyFile) }
 
+// ownerSSH says whether GIT_SSH_COMMAND was already set when Orla started: the owner chose how
+// git reaches its hosts, and Orla leaves that alone.
+var _, ownerSSH = os.LookupEnv("GIT_SSH_COMMAND")
+
+// ShareKey lets everything Orla starts (the agent's runs, terminals, automations, its own git)
+// reach git hosts with the library's key, one key for everything. The key stays where it is:
+// nothing is copied to ~/.ssh, and git run outside Orla does not see it.
+func (m *Manager) ShareKey() {
+	if ownerSSH {
+		return
+	}
+	if _, err := os.Stat(m.keyPath()); m.Keys == "" || err != nil {
+		_ = os.Unsetenv("GIT_SSH_COMMAND")
+		return
+	}
+	// No BatchMode here, unlike syncing: in a terminal someone may answer a prompt.
+	_ = os.Setenv("GIT_SSH_COMMAND", "ssh -o StrictHostKeyChecking=accept-new -o "+shellQuote("UserKnownHostsFile="+m.knownHosts())+" -i "+shellQuote(m.keyPath()))
+}
+
 // Key is the library's SSH key as the owner sees it.
 type Key struct {
 	Public string `json:"key"`
@@ -60,6 +79,7 @@ func (m *Manager) GenerateKey(ctx context.Context) (Key, error) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return Key{}, fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))
 	}
+	m.ShareKey()
 	return m.PublicKey()
 }
 
@@ -106,6 +126,7 @@ func (m *Manager) SetKey(ctx context.Context, private string) (Key, error) {
 	if err := os.WriteFile(filepath.Join(m.Keys, ownMark), nil, 0o600); err != nil {
 		return Key{}, err
 	}
+	m.ShareKey()
 	return Key{Public: pub, Own: true}, nil
 }
 
@@ -120,5 +141,6 @@ func (m *Manager) RemoveKey() error {
 			errs = append(errs, err)
 		}
 	}
+	m.ShareKey()
 	return errors.Join(errs...)
 }
