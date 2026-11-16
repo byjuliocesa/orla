@@ -319,6 +319,13 @@ export const Books = () => (
   </Icon>
 );
 
+export const Expand = () => (
+  <Icon>
+    <path className="i-out-a" d="M9.5 2.5h4v4M13.5 2.5 9 7" />
+    <path className="i-out-b" d="M6.5 13.5h-4v-4M2.5 13.5 7 9" />
+  </Icon>
+);
+
 export const KeyIcon = () => (
   <Icon className="icon i-key">
     <circle cx="5.5" cy="10.5" r="2.5" />

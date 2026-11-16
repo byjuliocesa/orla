@@ -421,6 +421,22 @@ button:is(:hover, :focus-visible):not(:disabled) .i-plus {
 button:is(:hover, :focus-visible):not(:disabled) .i-sync {
   transform: rotate(180deg);
 }
+button .i-out-a,
+button .i-out-b {
+  transition: transform 260ms var(--ease-out);
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-out-a {
+  transform: translate(1px, -1px);
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-out-b {
+  transform: translate(-1px, 1px);
+}
+button[aria-pressed='true']:is(:hover, :focus-visible):not(:disabled) .i-out-a {
+  transform: translate(-1px, 1px);
+}
+button[aria-pressed='true']:is(:hover, :focus-visible):not(:disabled) .i-out-b {
+  transform: translate(1px, -1px);
+}
 button:is(:hover, :focus-visible):not(:disabled) .i-key {
   transform: rotate(-20deg);
 }
