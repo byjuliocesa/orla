@@ -341,6 +341,13 @@ func normalizeRepo(s string) string {
 		return ""
 	}
 	parts[0] = strings.ToLower(parts[0])
+	// ssh.github.com and ssh.bitbucket.org are the same hosts as github.com and bitbucket.org,
+	// reached over SSH on another name.
+	for _, p := range []string{"ssh.", "altssh."} {
+		if h := strings.TrimPrefix(parts[0], p); h != parts[0] && strings.Contains(h, ".") {
+			parts[0] = h
+		}
+	}
 	return strings.Join(parts, "/")
 }
 
