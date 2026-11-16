@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import type { EnvLink, EnvList, Environment } from '@/lib/types';
 import { ask } from './ConfirmDialog';
 import { EmptyState } from './EmptyState';
-import { Cross, Expand, Pencil, Plus, Trash } from './Icons';
+import { Pencil, Plus, Trash } from './Icons';
 import { SeaDialog } from './SeaDialog';
 import { toast } from './Toast';
 
@@ -154,32 +154,58 @@ function parseEnv(text: string): Row[] {
   return out;
 }
 
+interface Var {
+  key: string;
+  value: string;
+  /** Saved before: its value is never shown, and left empty it keeps what was saved. */
+  saved: boolean;
+}
+
+const blank = (): Var => ({ key: '', value: '', saved: false });
+// The list always ends in an empty row, so a new variable is typed without a button.
+const withBlank = (vars: Var[]) => (vars.length && !vars[vars.length - 1]!.key && !vars[vars.length - 1]!.value ? vars : [...vars, blank()]);
+
 /**
- * One environment: its variables as a .env, typed or pasted, and the repositories it goes to.
- * Saved values are never shown: their names are listed, and a line for one of them replaces it.
+ * One environment: its variables, one row each, filled by typing or by pasting a .env, and the
+ * repositories it goes to. The body scrolls inside the dialog, so any number of variables fits.
  */
 function EnvForm({ env, repos, busy, onSave, onCancel }: { env?: Environment; repos: string[]; busy: boolean; onSave: (name: string, values: Record<string, string>, links: EnvLink[]) => void; onCancel: () => void }) {
   const [name, setName] = useState(env?.name ?? '');
-  const [kept, setKept] = useState<string[]>(env?.keys ?? []);
-  const [text, setText] = useState('');
-  const [tall, setTall] = useState(false);
+  const [vars, setVars] = useState<Var[]>(() => withBlank((env?.keys ?? []).map((key) => ({ key, value: '', saved: true }))));
+  const [paste, setPaste] = useState('');
   const [links, setLinks] = useState<EnvLink[]>(env?.links.length ? env.links : [{ repo: repos[0] ?? '', path: '.env' }]);
   const setLink = (i: number, l: Partial<EnvLink>) => setLinks(links.map((x, j) => (j === i ? { ...x, ...l } : x)));
+  const setVar = (i: number, v: Partial<Var>) => setVars(withBlank(vars.map((x, j) => (j === i ? { ...x, ...v } : x))));
+  const dropVar = (i: number) => setVars(withBlank(vars.filter((_, j) => j !== i)));
 
-  const typed = parseEnv(text);
-  const replaced = new Set(typed.map((r) => r.key));
+  // A pasted .env becomes rows: a line for a variable already listed replaces its value.
+  const take = (text: string) => {
+    const got = parseEnv(text);
+    if (!got.length) {
+      toast('No KEY=value lines in that text.');
+      return false;
+    }
+    const next = vars.filter((v) => v.key || v.value).map((v) => {
+      const g = got.find((x) => x.key === v.key);
+      return g ? { key: v.key, value: g.value, saved: false } : v;
+    });
+    for (const g of got) if (!next.some((v) => v.key === g.key)) next.push({ key: g.key, value: g.value, saved: false });
+    setVars(withBlank(next));
+    setPaste('');
+    return true;
+  };
+
+  const filled = vars.filter((v) => v.key.trim());
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim() && !typed.length) {
-      toast('No KEY=value lines in the variables.');
+    const bad = filled.find((v) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.key.trim()));
+    if (bad) {
+      toast(`${bad.key} is not a variable name: letters, digits and _, not starting with a digit.`);
       return;
     }
-    // A saved variable sent empty keeps its value; one left out is removed.
-    const values: Record<string, string> = Object.fromEntries(kept.map((k) => [k, '']));
-    for (const r of typed) values[r.key] = r.value;
     onSave(
       name.trim(),
-      values,
+      Object.fromEntries(filled.map((v) => [v.key.trim(), v.value])),
       links.filter((l) => l.repo.trim()).map((l) => ({ repo: l.repo.trim(), path: l.path.trim() || '.env' })),
     );
   };
@@ -189,71 +215,97 @@ function EnvForm({ env, repos, busy, onSave, onCancel }: { env?: Environment; re
       <h2 id="ev-title">{env ? `Edit ${env.name}` : 'New environment'}</h2>
       {/* The fieldset sits inside the scroller: a fieldset does not scroll itself as a flex child. */}
       <div className="ev-body">
-      <fieldset className="sy-fieldset" disabled={busy}>
-        {!env && (
-          <>
-            <label className="sy-label" htmlFor="ev-name">
-              Name
-            </label>
-            <input id="ev-name" className="sy-input mc-mono" value={name} onChange={(e) => setName(e.target.value)} placeholder="dev" spellCheck={false} autoComplete="off" autoFocus />
-          </>
-        )}
+        <fieldset className="sy-fieldset" disabled={busy}>
+          {!env && (
+            <>
+              <label className="sy-label" htmlFor="ev-name">
+                Name
+              </label>
+              <input id="ev-name" className="sy-input mc-mono" value={name} onChange={(e) => setName(e.target.value)} placeholder="dev" spellCheck={false} autoComplete="off" autoFocus />
+            </>
+          )}
 
-        <div className="ev-head">
-          <label className="sy-label" htmlFor="ev-vars">
-            Variables
+          <label className="sy-label" htmlFor="ev-paste">
+            Paste a .env
           </label>
-          <span className="ev-count">{typed.length > 0 && (typed.length === 1 ? '1 line read' : `${typed.length} lines read`)}</span>
-          <button type="button" className="fl-act" onClick={() => setTall(!tall)} aria-pressed={tall} aria-label={tall ? 'Shrink the variables' : 'Expand the variables'}>
-            <Expand />
-          </button>
-        </div>
-        {kept.length > 0 && (
-          <ul className="ev-kept" aria-label="Saved variables">
-            {kept.map((k) => (
-              <li key={k} data-replaced={replaced.has(k) || undefined} title={replaced.has(k) ? 'Replaced by a line below' : 'Saved; its value stays hidden'}>
-                <span>{k}</span>
-                <button type="button" onClick={() => setKept(kept.filter((x) => x !== k))} aria-label={`Remove ${k}`}>
-                  <Cross />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <textarea
-          id="ev-vars"
-          className="sy-input mc-mono ev-vars"
-          data-tall={tall || undefined}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={kept.length ? 'Lines here add or replace variables, like\nAPI_URL=https://…' : 'Paste a .env, or type one variable per line:\nAPI_URL=https://…\nDATABASE_URL=postgres://…'}
-          spellCheck={false}
-          autoComplete="off"
-          autoFocus={!!env}
-        />
-
-        <span className="sy-label ev-label">Repositories</span>
-        <datalist id="ev-repos">
-          {repos.map((r) => (
-            <option key={r} value={r} />
-          ))}
-        </datalist>
-        <div className="ev-rows">
-          {links.map((l, i) => (
-            <div key={i} className="ev-row">
-              <input className="sy-input mc-mono" value={l.repo} onChange={(e) => setLink(i, { repo: e.target.value })} list="ev-repos" placeholder="github.com/you/app" aria-label="Repository" spellCheck={false} autoComplete="off" />
-              <input className="sy-input mc-mono" value={l.path} onChange={(e) => setLink(i, { path: e.target.value })} placeholder=".env" aria-label="File in the repository" spellCheck={false} autoComplete="off" />
-              <button type="button" className="fl-act" onClick={() => setLinks(links.filter((_, j) => j !== i))} aria-label={`Unlink ${l.repo || 'this repository'}`}>
-                <Trash />
+          <div className="ev-paste">
+            <textarea
+              id="ev-paste"
+              className="sy-input mc-mono"
+              rows={2}
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              onPaste={(e) => {
+                const t = e.clipboardData.getData('text');
+                if (parseEnv(t).length) {
+                  e.preventDefault();
+                  take(t);
+                }
+              }}
+              placeholder={'API_URL=https://…\nDATABASE_URL=postgres://…'}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {paste.trim() && (
+              <button type="button" className="btn" onClick={() => take(paste)}>
+                Add to variables
               </button>
-            </div>
-          ))}
-        </div>
-        <button type="button" className="fl-act ev-add" onClick={() => setLinks([...links, { repo: '', path: '.env' }])}>
-          <Plus />
-          Link a repository
-        </button>
-      </fieldset>
+            )}
+          </div>
+
+          <div className="ev-head">
+            <span className="sy-label">Variables</span>
+            <span className="ev-count">{filled.length === 1 ? '1 variable' : `${filled.length} variables`}</span>
+          </div>
+          <div className="ev-vars" role="group" aria-label="Variables">
+            {vars.map((v, i) => {
+              const last = i === vars.length - 1;
+              return (
+                <div key={i} className="ev-row">
+                  <input className="sy-input mc-mono" value={v.key} onChange={(e) => setVar(i, { key: e.target.value })} placeholder={last ? 'NEW_KEY' : 'KEY'} aria-label="Variable name" spellCheck={false} autoComplete="off" />
+                  <input
+                    className="sy-input mc-mono"
+                    value={v.value}
+                    onChange={(e) => setVar(i, { value: e.target.value, saved: v.saved && e.target.value === '' })}
+                    placeholder={v.saved ? 'Saved · empty keeps it' : 'value'}
+                    aria-label={`Value of ${v.key || 'the new variable'}`}
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                  {last ? (
+                    <span aria-hidden="true" />
+                  ) : (
+                    <button type="button" className="fl-act" onClick={() => dropVar(i)} aria-label={`Remove ${v.key || 'this variable'}`}>
+                      <Trash />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <span className="sy-label ev-label">Repositories</span>
+          <datalist id="ev-repos">
+            {repos.map((r) => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
+          <div className="ev-rows">
+            {links.map((l, i) => (
+              <div key={i} className="ev-row">
+                <input className="sy-input mc-mono" value={l.repo} onChange={(e) => setLink(i, { repo: e.target.value })} list="ev-repos" placeholder="github.com/you/app" aria-label="Repository" spellCheck={false} autoComplete="off" />
+                <input className="sy-input mc-mono" value={l.path} onChange={(e) => setLink(i, { path: e.target.value })} placeholder=".env" aria-label="File in the repository" spellCheck={false} autoComplete="off" />
+                <button type="button" className="fl-act" onClick={() => setLinks(links.filter((_, j) => j !== i))} aria-label={`Unlink ${l.repo || 'this repository'}`}>
+                  <Trash />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="fl-act ev-add" onClick={() => setLinks([...links, { repo: '', path: '.env' }])}>
+            <Plus />
+            Link a repository
+          </button>
+        </fieldset>
       </div>
       <div className="mc-acts ev-foot">
         <button type="button" className="btn" onClick={onCancel} disabled={busy}>
