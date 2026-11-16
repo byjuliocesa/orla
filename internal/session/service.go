@@ -59,6 +59,9 @@ type Service struct {
 	approvalsURL string
 	approvalWait time.Duration
 
+	// beforeRun readies a session's folder before each run, such as its environment files.
+	beforeRun func(ctx context.Context, cwd string)
+
 	hookMu sync.Mutex
 	// stopping holds interactive runs past their Stop, waiting for the transcript. Guarded by
 	// hookMu.
@@ -87,6 +90,9 @@ func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[
 
 // ApprovalsAt has headless runs send permission prompts to Orla, at url followed by the run id.
 // Call it before the first run.
+// BeforeRun sets what readies a session's folder before each of its runs.
+func (s *Service) BeforeRun(f func(ctx context.Context, cwd string)) { s.beforeRun = f }
+
 func (s *Service) ApprovalsAt(url string) { s.approvalsURL = url }
 
 // Recover closes runs left "running" by a previous process. Their CLI died with it, so they
@@ -232,6 +238,9 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 			defer s.dropRunAccess(run.ID)
 			// The CLI outwaits Orla, so a request ends by Orla's rule, which the owner was told.
 			spec.Approvals = &cli.Approvals{URL: s.approvalsURL + run.ID, Token: secret, Wait: s.approvalWait + time.Minute}
+		}
+		if s.beforeRun != nil {
+			s.beforeRun(runCtx, sess.Cwd)
 		}
 		// Recording is never cancelled: a run stopped midway, or by shutdown, must still store
 		// what it did and how it ended.

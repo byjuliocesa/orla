@@ -5,13 +5,14 @@ import { layout } from '@/lib/flowlayout';
 import type { Flow, Session } from '@/lib/types';
 import { AutomationsView } from './AutomationsView';
 import { ask } from './ConfirmDialog';
-import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, Books, FlowIcon, PuzzleIcon, Trash } from './Icons';
+import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, Books, FlowIcon, KeyIcon, PuzzleIcon, Trash } from './Icons';
 import { FlowEmpty } from './FlowView';
+import { EnvView } from './EnvView';
 import { McpView } from './McpView';
 import { SyncChip, SyncView, useLibrary } from './SyncView';
 import { toast } from './Toast';
 
-type Tab = 'skills' | 'flows' | 'automations' | 'mcp';
+type Tab = 'skills' | 'flows' | 'automations' | 'mcp' | 'envs';
 const TAB_KEY = 'orla.library.tab';
 
 /**
@@ -22,7 +23,7 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
   const [tab, setTabState] = useState<Tab>(() => {
     try {
       const t = localStorage.getItem(TAB_KEY);
-      return t === 'flows' || t === 'automations' || t === 'mcp' ? t : 'skills';
+      return t === 'flows' || t === 'automations' || t === 'mcp' || t === 'envs' ? t : 'skills';
     } catch {
       return 'skills';
     }
@@ -34,7 +35,7 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
     } catch {}
   };
   const [lib, setLib, reloadLib] = useLibrary();
-  const order: Tab[] = ['skills', 'flows', 'automations', 'mcp'];
+  const order: Tab[] = ['skills', 'flows', 'automations', 'mcp', 'envs'];
   const [from, setFrom] = useState<'left' | 'right'>('left');
   const pick = (t: Tab) => {
     setFrom(order.indexOf(t) >= order.indexOf(tab) ? 'right' : 'left');
@@ -67,6 +68,10 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
               <PuzzleIcon />
               MCP
             </button>
+            <button className="head-tab" aria-pressed={tab === 'envs'} onClick={() => pick('envs')}>
+              <KeyIcon />
+              Environments
+            </button>
           </div>
           {lib && <SyncChip st={lib} setSt={setLib} onConnect={() => pick('skills')} />}
         </div>
@@ -78,6 +83,8 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
           <AutomationsView sessions={sessions} />
         ) : tab === 'mcp' ? (
           <McpView />
+        ) : tab === 'envs' ? (
+          <EnvView />
         ) : (
           <SyncView st={lib} setSt={setLib} reload={reloadLib} openSession={openSession} />
         )}

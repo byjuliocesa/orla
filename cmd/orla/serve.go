@@ -96,6 +96,12 @@ func serve(args []string) error {
 	home, _ := os.UserHomeDir()
 	shelf := &library.Manager{Root: filepath.Join(*dataDir, "library"), Home: home, Settings: filepath.Join(*dataDir, "library.json"), Keys: filepath.Join(*dataDir, "ssh"), Log: log, Claude: claude.Exe}
 	shelf.ShareKey()
+	// Each run finds its repository's environment files in place.
+	sessions.BeforeRun(func(ctx context.Context, cwd string) {
+		if err := shelf.WriteEnvs(ctx, cwd); err != nil {
+			log.Warn("library env", "cwd", cwd, "err", err)
+		}
+	})
 	go func() {
 		if err := shelf.ApplyMCP(ctx); err != nil {
 			log.Warn("library mcp", "err", err)

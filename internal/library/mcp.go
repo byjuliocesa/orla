@@ -90,9 +90,12 @@ type mcpValues struct {
 
 // sealed is what secrets.age holds. For lists the keys it was encrypted to, so a machine that
 // can read it notices a new machine and encrypts it again for everyone.
+// It also holds the environments' values, so one file, under one set of keys, holds every secret.
 type sealed struct {
 	For     []string             `json:"for"`
 	Servers map[string]mcpValues `json:"servers"`
+	// Envs are each environment's variables, by environment name.
+	Envs map[string]map[string]string `json:"envs,omitempty"`
 }
 
 var mcpName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
@@ -165,6 +168,7 @@ func (m *Manager) own() string {
 // openSecrets reads secrets.age. ok is false when there are values this machine cannot read.
 func (m *Manager) openSecrets() (s sealed, ok bool, err error) {
 	s.Servers = map[string]mcpValues{}
+	s.Envs = map[string]map[string]string{}
 	b, err := os.ReadFile(m.mcpPath(mcpSecrets))
 	if errors.Is(err, os.ErrNotExist) {
 		return s, true, nil
@@ -197,13 +201,16 @@ func (m *Manager) openSecrets() (s sealed, ok bool, err error) {
 	if s.Servers == nil {
 		s.Servers = map[string]mcpValues{}
 	}
+	if s.Envs == nil {
+		s.Envs = map[string]map[string]string{}
+	}
 	return s, true, nil
 }
 
 // seal encrypts the values to every machine.
-func (m *Manager) seal(values map[string]mcpValues) error {
+func (m *Manager) seal(sec sealed) error {
 	machines := m.readMachines()
-	if len(values) == 0 {
+	if len(sec.Servers) == 0 && len(sec.Envs) == 0 {
 		err := os.Remove(m.mcpPath(mcpSecrets))
 		if errors.Is(err, os.ErrNotExist) {
 			err = nil
@@ -221,7 +228,7 @@ func (m *Manager) seal(values map[string]mcpValues) error {
 	if len(to) == 0 {
 		return errors.New("the library has no key to encrypt with; set one in Library › Sync")
 	}
-	plain, _ := json.Marshal(sealed{For: machines, Servers: values})
+	plain, _ := json.Marshal(sealed{For: machines, Servers: sec.Servers, Envs: sec.Envs})
 	var out bytes.Buffer
 	a := armor.NewWriter(&out)
 	w, err := age.Encrypt(a, to...)
@@ -356,7 +363,7 @@ func (m *Manager) SaveMCP(ctx context.Context, in MCPInput) error {
 	if err := m.writeServers(list); err != nil {
 		return err
 	}
-	if err := m.seal(sec.Servers); err != nil {
+	if err := m.seal(sec); err != nil {
 		return err
 	}
 	return m.applyMCP(ctx)
@@ -405,7 +412,7 @@ func (m *Manager) RemoveMCP(ctx context.Context, name string) error {
 			return ErrLocked
 		}
 		delete(sec.Servers, name)
-		if err := m.seal(sec.Servers); err != nil {
+		if err := m.seal(sec); err != nil {
 			return err
 		}
 	}
@@ -439,8 +446,8 @@ func (m *Manager) applyMCP(ctx context.Context) error {
 		return err
 	}
 	// A machine that can read the values opens them to the machines that joined since.
-	if ok && len(sec.Servers) > 0 && !slices.Equal(sec.For, m.readMachines()) {
-		if err := m.seal(sec.Servers); err != nil {
+	if ok && len(sec.Servers)+len(sec.Envs) > 0 && !slices.Equal(sec.For, m.readMachines()) {
+		if err := m.seal(sec); err != nil {
 			return err
 		}
 	}

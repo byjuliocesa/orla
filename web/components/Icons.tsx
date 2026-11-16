@@ -319,6 +319,13 @@ export const Books = () => (
   </Icon>
 );
 
+export const KeyIcon = () => (
+  <Icon className="icon i-key">
+    <circle cx="5.5" cy="10.5" r="2.5" />
+    <path d="M7.3 8.7 13 3M11 5l1.5 1.5M9.5 6.5 11 8" />
+  </Icon>
+);
+
 export const SyncIcon = () => (
   <Icon className="icon i-sync">
     <path d="M13 6.5A5.2 5.2 0 0 0 3.6 5" />

@@ -399,7 +399,8 @@ textarea {
 button .i-lid,
 button .i-pen,
 button .i-plus,
-button .i-sync {
+button .i-sync,
+button .i-key {
   transition: transform 260ms var(--ease-out);
 }
 button .i-pen,
@@ -420,6 +421,9 @@ button:is(:hover, :focus-visible):not(:disabled) .i-plus {
 button:is(:hover, :focus-visible):not(:disabled) .i-sync {
   transform: rotate(180deg);
 }
+button:is(:hover, :focus-visible):not(:disabled) .i-key {
+  transform: rotate(-20deg);
+}
 button:has(.i-lid):is(:hover, :focus-visible):not(:disabled):not(.btn-danger) {
   background: var(--fail-ground);
   color: var(--fail-text);
@@ -431,7 +435,8 @@ button:has(.i-lid):is(:hover, :focus-visible):not(:disabled) svg {
   button .i-lid,
   button .i-pen,
   button .i-plus,
-  button .i-sync {
+  button .i-sync,
+  button .i-key {
     transition: none;
   }
 }

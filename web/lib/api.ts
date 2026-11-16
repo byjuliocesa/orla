@@ -1,4 +1,4 @@
-import type { AgentInfo, McpInput, McpList, Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
+import type { AgentInfo, EnvLink, EnvList, McpInput, McpList, Automation, AutomationLine, ChangedFile, LibraryStatus, SavedSession, Changes, Flow, FlowStep, MergeState, OrlaEvent, PendingApproval, Repo, Session, TerminalInfo, Worktree } from './types';
 
 /** The browser is not logged in, or its login ended. */
 export class Unauthorized extends Error {
@@ -143,6 +143,9 @@ export const api = {
   cancelLogin: (id: string) => call<void>('DELETE', `/v1/agents/${id}/login`),
   library: () => call<LibraryStatus>('GET', '/v1/library'),
   libraryKey: () => call<LibraryKey>('GET', '/v1/library/key'),
+  envs: () => call<EnvList>('GET', '/v1/envs'),
+  saveEnv: (name: string, values: Record<string, string>, links: EnvLink[]) => call<EnvList>('PUT', `/v1/envs/${encodeURIComponent(name)}`, { values, links }),
+  removeEnv: (name: string) => call<EnvList>('DELETE', `/v1/envs/${encodeURIComponent(name)}`),
   mcp: () => call<McpList>('GET', '/v1/mcp'),
   saveMcp: (name: string, server: McpInput) => call<McpList>('PUT', `/v1/mcp/${encodeURIComponent(name)}`, server),
   adoptMcp: (name: string) => call<McpList>('POST', `/v1/mcp/${encodeURIComponent(name)}/adopt`),

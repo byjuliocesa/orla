@@ -225,6 +225,22 @@ export interface LibraryAgent {
 
 /** The library and how it stands with its repository. */
 /** An MCP server the library keeps; headers and env name the values kept encrypted. */
+/** A named set of variables, written into the checkouts of the repositories it is linked to. */
+export interface EnvLink {
+  repo: string;
+  path: string;
+}
+export interface Environment {
+  name: string;
+  keys: string[];
+  links: EnvLink[];
+}
+export interface EnvList {
+  environments: Environment[];
+  repos: string[];
+  locked: boolean;
+}
+
 export interface McpServer {
   name: string;
   type: 'http' | 'sse' | 'stdio';
