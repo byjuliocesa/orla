@@ -71,51 +71,56 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
 
   if (!st) return <div className="au-wrap" role="status" aria-label="Reading the library" />;
 
-  // Groups follow the library's folders: shared, one per agent, automations.
-  const places = [{ key: 'shared', title: 'Shared' }, ...st.agents.map((a) => ({ key: a.name, title: `${a.name}/` })), { key: 'automations', title: 'Automations' }];
-
   return (
     <div className="au-wrap">
       <div className="au-col sy-col">
-        {st.remote ? <Connected st={st} busy={busy} run={run} setSt={setSt} /> : <Connect connected={setSt} />}
+        {!st.remote && <Connect connected={setSt} />}
 
         <section className="au-section">
           <div className="sy-head">
             <h3>In the library</h3>
-            <span className="sy-where num" title={st.dir}>
-              {shortPath(st.dir, 40)}
-            </span>
           </div>
           {st.entries.length === 0 ? (
-            <p className="au-note sy-empty">Empty. Move items in from below.</p>
+            <p className="au-note sy-empty">None yet. Add one from below.</p>
           ) : (
-            places.map((p) => {
-              const items = st.entries.filter((e) => e.place === p.key);
-              if (items.length === 0) return null;
-              return (
-                <div key={p.key} className="sy-place">
-                  <h4 className={p.key !== 'shared' && p.key !== 'automations' ? 'sy-folder' : undefined}>{p.title}</h4>
-                  <ul className="au-list">
-                    {items.map((e) => (
-                      <Row key={e.place + e.name} e={e}>
-                        {e.place !== 'shared' && e.place !== 'automations' && (
-                          <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('move', { from: e.place, name: e.name, to: 'shared' }, e.place + e.name)}>
-                            Share
-                          </button>
-                        )}
-                      </Row>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })
+            <ul className="au-list">
+              {st.entries.map((e) => (
+                <Row key={e.place + e.name} e={e}>
+                  {e.place !== 'shared' && e.place !== 'automations' && (
+                    <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('move', { from: e.place, name: e.name, to: 'shared' }, e.place + e.name)}>
+                      For all agents
+                    </button>
+                  )}
+                </Row>
+              ))}
+            </ul>
           )}
         </section>
+
+        {st.outside.length > 0 && (
+          <section className="au-section">
+            <div className="sy-head">
+              <h3>Only on this machine</h3>
+            </div>
+            <ul className="au-list">
+              {st.outside.map((e) => {
+                const key = e.place + e.name;
+                return (
+                  <Row key={key} e={e}>
+                    <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: e.place === 'automations' ? 'automations' : 'shared' }, key)}>
+                      Add to library
+                    </button>
+                  </Row>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         {st.sessions.length > 0 && (
           <section className="au-section">
             <div className="sy-head">
-              <h3>Sessions</h3>
+              <h3>Saved sessions</h3>
             </div>
             <ul className="au-list">
               {st.sessions.map((x) => (
@@ -124,43 +129,16 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
             </ul>
           </section>
         )}
-
-        {st.outside.length > 0 && (
-          <section className="au-section">
-            <div className="sy-head">
-              <h3>Not in the library</h3>
-            </div>
-            <ul className="au-list">
-              {st.outside.map((e) => {
-                const key = e.place + e.name;
-                return (
-                  <Row key={key} e={e} from={e.place === 'automations' ? undefined : `${e.place}/`}>
-                    {e.place === 'automations' ? (
-                      <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: 'automations' }, key)}>
-                        Move in
-                      </button>
-                    ) : (
-                      <>
-                        <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: 'shared' }, key)}>
-                          Share
-                        </button>
-                        <button type="button" className="fl-act" disabled={!!busy} onClick={() => void run('adopt', { from: e.place, name: e.name, to: e.place }, key)}>
-                          Keep separate
-                        </button>
-                      </>
-                    )}
-                  </Row>
-                );
-              })}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   );
 }
 
-function Row({ e, from, children }: { e: LibraryEntry; from?: string; children?: React.ReactNode }) {
+// Who loads an entry, in words.
+const WHO: Record<string, string> = { shared: 'All agents', automations: 'Automation' };
+const who = (place: string) => WHO[place] ?? `${place.charAt(0).toUpperCase()}${place.slice(1)} only`;
+
+function Row({ e, children }: { e: LibraryEntry; children?: React.ReactNode }) {
   const blocked = e.blocked ?? [];
   return (
     <li className="au-row sy-row">
@@ -176,13 +154,13 @@ function Row({ e, from, children }: { e: LibraryEntry; from?: string; children?:
         </span>
         <span className="sy-side">
           <span className="sy-meta">
-            {from ? (
-              <span className="sy-from">{from}</span>
-            ) : blocked.length > 0 ? (
+            {blocked.length > 0 ? (
               <span className="sy-blocked" title={`A folder named ${e.name} already exists there, so it was left alone.`}>
                 Name in use
               </span>
-            ) : null}
+            ) : (
+              <span className="sy-from">{who(e.place)}</span>
+            )}
           </span>
           {children && <span className="sy-acts">{children}</span>}
         </span>
@@ -463,85 +441,94 @@ function KeyBox({ onBusy }: { onBusy: (on: boolean) => void }) {
   );
 }
 
-function Connected({ st, busy, run, setSt }: { st: LibraryStatus; busy: string | null; run: (a: Action, b?: Body, key?: string) => Promise<boolean>; setSt: (s: LibraryStatus) => void }) {
+/**
+ * The one place sync shows: how the library stands, and on click, where it syncs and what can
+ * be done. Unconnected, it leads to the Skills tab, where the repository is connected.
+ */
+export function SyncChip({ st, setSt, onConnect }: { st: LibraryStatus; setSt: (s: LibraryStatus) => void; onConnect: () => void }) {
   const now = useNow(15_000);
-  const syncing = st.state === 'syncing' || busy === 'sync' || busy === 'connect';
-  const host = hostOf(st.remote);
-  const disconnect = async () => {
-    if (!(await ask({ title: 'Stop syncing?', body: 'Nothing is deleted here or in the repository.', confirm: 'Stop syncing', danger: false }))) return;
-    void run('disconnect');
-  };
-  const auto = async (on: boolean) => {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    addEventListener('mousedown', away);
+    addEventListener('keydown', esc);
+    return () => {
+      removeEventListener('mousedown', away);
+      removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
+  const syncing = st.state === 'syncing' || busy === 'sync';
+  const act = async (f: () => Promise<LibraryStatus>, key: string) => {
+    setBusy(key);
     try {
-      setSt(await api.libraryAuto(on));
+      setSt(await f());
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Orla could not change it.');
+      if (!(err instanceof ApiError && err.status === 409)) toast(err instanceof Error ? capital(err.message) + '.' : 'Orla could not reach the library.');
+    } finally {
+      setBusy(null);
     }
   };
+  const disconnect = async () => {
+    setOpen(false);
+    if (await ask({ title: 'Stop syncing?', body: 'Nothing is deleted here or in the repository.', confirm: 'Stop syncing', danger: false })) void act(() => api.libraryAction('disconnect'), 'disconnect');
+  };
+
+  if (!st.remote) {
+    return (
+      <button type="button" className="sy-chip" data-state="off" onClick={onConnect}>
+        <span className="sy-dot" aria-hidden="true" />
+        Not synced
+      </button>
+    );
+  }
   return (
-    <section className="sy-link" data-state={syncing ? 'syncing' : st.state}>
-      <div className="sy-ends">
-        <div className="sy-end">
-          <span className="sy-end-label">This machine</span>
-          <span className="sy-end-value">{st.entries.length === 1 ? '1 item' : `${st.entries.length} items`}</span>
-        </div>
-        <div className="sy-wire" aria-hidden="true">
-          <span className="sy-wire-line" />
-          <span className="sy-wire-icon">
-            <SyncIcon />
-          </span>
-        </div>
-        <div className="sy-end sy-end-remote">
-          <span className="sy-end-label">
+    <div className="sy-pop-wrap" ref={box}>
+      <button type="button" className="sy-chip" data-state={syncing ? 'syncing' : st.state} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="sy-dot" aria-hidden="true" />
+        {syncing ? 'Syncing…' : syncWords(st, now)}
+      </button>
+      {open && (
+        <div className="sy-pop" role="dialog" aria-label="Sync">
+          <div className="sy-pop-repo" title={st.remote}>
             <RepoIcon />
-            {host}
-          </span>
-          <span className="sy-end-value num" title={st.remote}>
             <span className="sy-path">{pathOf(st.remote)}</span>
             {st.branch && <span className="sy-branch">{st.branch}</span>}
-          </span>
-        </div>
-      </div>
-
-      <div className="sy-bar">
-        <p className="sy-state" role="status">
-          {syncing ? 'Syncing' : syncWords(st, now)}
-        </p>
-        <label className="sy-auto">
-          <button type="button" role="switch" className="sk-switch" aria-checked={st.auto} onClick={() => void auto(!st.auto)} aria-label="Auto-sync" />
-          Auto-sync
-        </label>
-        <button type="button" className="btn btn-primary sy-now" disabled={syncing} onClick={() => void run('sync')}>
-          <SyncIcon />
-          {syncing ? 'Syncing…' : 'Sync now'}
-        </button>
-        <button type="button" className="sy-off" disabled={!!busy} onClick={() => void disconnect()}>
-          Stop syncing
-        </button>
-      </div>
-
-      {st.state === 'conflict' && (
-        <div className="sy-problem" role="alert">
-          <p>Same lines changed here and in the repository. Nothing was overwritten.</p>
-          <ul>
-            {(st.conflicts ?? []).map((f) => (
-              <li key={f} className="num">
-                {f}
-              </li>
-            ))}
-          </ul>
-          <p>
-            Resolve in <code>{st.dir}</code>, then sync.
-          </p>
+          </div>
+          {st.state === 'error' && st.error && <p className="sy-pop-problem">{capital(st.error)}.</p>}
+          {st.state === 'conflict' && (
+            <div className="sy-pop-problem">
+              <p>These changed here and in the repository; nothing was overwritten:</p>
+              <ul>
+                {(st.conflicts ?? []).map((f) => (
+                  <li key={f} className="num">
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Resolve in <code>{st.dir}</code>, then sync.
+              </p>
+            </div>
+          )}
+          <button type="button" className="btn btn-primary sy-pop-now" disabled={syncing} onClick={() => void act(() => api.libraryAction('sync'), 'sync')}>
+            <SyncIcon />
+            {syncing ? 'Syncing…' : 'Sync now'}
+          </button>
+          <label className="sy-pop-auto">
+            <button type="button" role="switch" className="sk-switch" aria-checked={st.auto} onClick={() => void act(() => api.libraryAuto(!st.auto), 'auto')} />
+            Sync on its own
+          </label>
+          <button type="button" className="sy-pop-off" disabled={!!busy} onClick={() => void disconnect()}>
+            Stop syncing
+          </button>
         </div>
       )}
-      {st.state === 'error' && st.error && (
-        <div className="sy-problem" role="alert">
-          <p>{capital(st.error)}.</p>
-        </div>
-      )}
-
-    </section>
+    </div>
   );
 }
 

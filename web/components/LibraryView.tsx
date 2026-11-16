@@ -5,13 +5,12 @@ import { layout } from '@/lib/flowlayout';
 import type { Flow, Session } from '@/lib/types';
 import { AutomationsView } from './AutomationsView';
 import { ask } from './ConfirmDialog';
-import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, FlowIcon, PuzzleIcon, SyncIcon, Trash } from './Icons';
+import { Archive, ArrowLeft, Bolt, ChevronRight, Copy, Books, FlowIcon, PuzzleIcon, Trash } from './Icons';
 import { McpView } from './McpView';
-import { SyncView, syncWords, useLibrary } from './SyncView';
-import { useNow } from '@/lib/hooks';
+import { SyncChip, SyncView, useLibrary } from './SyncView';
 import { toast } from './Toast';
 
-type Tab = 'flows' | 'automations' | 'mcp' | 'sync';
+type Tab = 'skills' | 'flows' | 'automations' | 'mcp';
 const TAB_KEY = 'orla.library.tab';
 
 /**
@@ -22,9 +21,9 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
   const [tab, setTabState] = useState<Tab>(() => {
     try {
       const t = localStorage.getItem(TAB_KEY);
-      return t === 'automations' || t === 'mcp' || t === 'sync' ? t : 'flows';
+      return t === 'flows' || t === 'automations' || t === 'mcp' ? t : 'skills';
     } catch {
-      return 'flows';
+      return 'skills';
     }
   });
   const setTab = (t: Tab) => {
@@ -34,8 +33,7 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
     } catch {}
   };
   const [lib, setLib, reloadLib] = useLibrary();
-  const now = useNow(15_000);
-  const order: Tab[] = ['flows', 'automations', 'mcp', 'sync'];
+  const order: Tab[] = ['skills', 'flows', 'automations', 'mcp'];
   const [from, setFrom] = useState<'left' | 'right'>('left');
   const pick = (t: Tab) => {
     setFrom(order.indexOf(t) >= order.indexOf(tab) ? 'right' : 'left');
@@ -52,6 +50,10 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
         </div>
         <div className="head-main">
           <div className="head-tabs" role="group" aria-label="Show">
+            <button className="head-tab" aria-pressed={tab === 'skills'} onClick={() => pick('skills')}>
+              <Books />
+              Skills
+            </button>
             <button className="head-tab" aria-pressed={tab === 'flows'} onClick={() => pick('flows')}>
               <FlowIcon />
               Flows
@@ -64,17 +66,8 @@ export function LibraryView({ sessions, onBack, openSession }: { sessions: Sessi
               <PuzzleIcon />
               MCP
             </button>
-            <button className="head-tab" aria-pressed={tab === 'sync'} onClick={() => pick('sync')}>
-              <SyncIcon />
-              Sync
-            </button>
           </div>
-          {lib && tab !== 'sync' && (
-            <button type="button" className="sy-chip" data-state={lib.state} onClick={() => pick('sync')}>
-              <span className="sy-dot" aria-hidden="true" />
-              {syncWords(lib, now)}
-            </button>
-          )}
+          {lib && <SyncChip st={lib} setSt={setLib} onConnect={() => pick('skills')} />}
         </div>
       </header>
       <div className="tab-stage" key={tab} data-from={from}>
