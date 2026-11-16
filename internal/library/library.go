@@ -177,6 +177,30 @@ func prune(root, home string) {
 	}
 }
 
+// Builtin lists the skills Orla installs itself and the agent loads on its own, such as orla,
+// which explains Orla to the agent. Orla's slash commands, such as /newflow, are left out.
+func Builtin(home string) []Entry {
+	out := []Entry{}
+	a := Agents[0]
+	items, _ := os.ReadDir(agentDir(home, a))
+	for _, it := range items {
+		dir := filepath.Join(agentDir(home, a), it.Name())
+		if !it.IsDir() {
+			continue
+		}
+		e := describe(dir, a.Name)
+		if e.Kind != "system" {
+			continue
+		}
+		if b, err := os.ReadFile(filepath.Join(dir, "SKILL.md")); err == nil && strings.Contains(string(b), "disable-model-invocation: true") {
+			continue
+		}
+		e.Kind = "skill"
+		out = append(out, e)
+	}
+	return out
+}
+
 // Outside lists what agents load that is not in the library yet: real folders in their skills
 // folders and in Orla's automations, which Adopt can move in. Orla's own commands, such as
 // /newflow, which Orla installs itself, are left out.

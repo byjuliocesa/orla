@@ -284,6 +284,7 @@ export interface LibraryStatus {
   pending: number;
   entries: LibraryEntry[];
   outside: LibraryEntry[];
+  builtin?: LibraryEntry[];
   agents: LibraryAgent[];
   sessions: SavedSession[];
 }

@@ -128,6 +128,19 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
           </section>
         )}
 
+        {(st.builtin ?? []).length > 0 && (
+          <section className="au-section">
+            <div className="sy-head">
+              <h3>Built into Orla</h3>
+            </div>
+            <ul className="au-list sk-list">
+              {(st.builtin ?? []).map((e) => (
+                <Row key={e.name} e={{ ...e, place: 'builtin' }} />
+              ))}
+            </ul>
+          </section>
+        )}
+
         {st.sessions.length > 0 && (
           <section className="au-section">
             <div className="sy-head">
@@ -146,7 +159,7 @@ export function SyncView({ st, setSt, reload, openSession }: { st: LibraryStatus
 }
 
 // Who loads an entry, in words.
-const WHO: Record<string, string> = { shared: 'All agents', automations: 'Automation' };
+const WHO: Record<string, string> = { shared: 'All agents', automations: 'Automation', builtin: 'Updated by Orla' };
 const who = (place: string) => WHO[place] ?? `${place.charAt(0).toUpperCase()}${place.slice(1)} only`;
 
 function Row({ e, children }: { e: LibraryEntry; children?: React.ReactNode }) {

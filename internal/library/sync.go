@@ -62,9 +62,11 @@ type Status struct {
 	Conflicts []string   `json:"conflicts,omitempty"`
 	LastSync  *time.Time `json:"last_sync,omitempty"`
 	// Pending counts the changes not on the remote yet: files changed here and commits not pushed.
-	Pending int      `json:"pending"`
-	Entries []Entry  `json:"entries"`
-	Outside []Entry  `json:"outside"`
+	Pending int     `json:"pending"`
+	Entries []Entry `json:"entries"`
+	Outside []Entry `json:"outside"`
+	// Builtin are the skills Orla installs itself; they are not the library's to change.
+	Builtin []Entry  `json:"builtin"`
 	Agents  []agentV `json:"agents"`
 	// Sessions are the conversations saved in the library.
 	Sessions []SavedSession `json:"sessions"`
@@ -97,6 +99,7 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	if o := Outside(m.Root, m.Home); o != nil {
 		s.Outside = o
 	}
+	s.Builtin = Builtin(m.Home)
 	s.Sessions = SavedSessions(m.Root)
 
 	m.mu.Lock()
