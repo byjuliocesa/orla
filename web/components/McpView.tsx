@@ -201,7 +201,10 @@ function McpForm({ server, busy, onSave, onCancel }: { server?: Server; busy: bo
     e.preventDefault();
     // Other saved keys go back empty, which keeps them.
     const keys: Record<string, string> = Object.fromEntries(saved.map((k) => [k, '']));
-    if (keyName.trim() && (value || saved.includes(keyName.trim()))) keys[keyName.trim()] = value;
+    const k = keyName.trim();
+    // A bare token in Authorization is a bearer token; one with its scheme ("Basic …") is kept.
+    const v = value.trim();
+    if (k && (v || saved.includes(k))) keys[k] = !stdio && k.toLowerCase() === 'authorization' && v && !/\s/.test(v) ? `Bearer ${v}` : v;
     const a = address.trim();
     const s: McpInput = stdio
       ? (() => {
@@ -237,7 +240,7 @@ function McpForm({ server, busy, onSave, onCancel }: { server?: Server; busy: bo
             value={value}
             onChange={(e) => setValue(e.target.value)}
             aria-label="Value"
-            placeholder={saved.includes(keyName.trim()) ? 'Saved · empty keeps it' : 'Bearer …'}
+            placeholder={saved.includes(keyName.trim()) ? 'Saved · empty keeps it' : 'Token'}
             autoComplete="off"
           />
         </div>
