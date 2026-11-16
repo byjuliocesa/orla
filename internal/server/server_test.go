@@ -113,6 +113,7 @@ func TestEveryRouteButHealthNeedsTheToken(t *testing.T) {
 		{"GET", "/v1/mcp"},
 		{"PUT", "/v1/mcp/x"},
 		{"POST", "/v1/mcp/x/adopt"},
+		{"POST", "/v1/mcp/x/check"},
 		{"DELETE", "/v1/mcp/x"},
 		{"GET", "/v1/sessions"},
 		{"POST", "/v1/sessions"},

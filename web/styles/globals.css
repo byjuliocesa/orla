@@ -394,14 +394,52 @@ textarea {
   transition: transform 260ms var(--ease-out);
 }
 
+/* Every button moves its icon the same way, wherever it is: the lid lifts, the pen writes,
+   the plus turns, sync spins. A button that deletes also turns red. */
+button .i-lid,
+button .i-pen,
+button .i-plus,
+button .i-sync {
+  transition: transform 260ms var(--ease-out);
+}
+button .i-pen,
+button .i-plus {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-lid {
+  transform: translateY(-1.5px) rotate(-8deg);
+  transform-origin: 3px 4.5px;
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-pen {
+  transform: translate(-0.5px, 0.5px) rotate(-12deg);
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-plus {
+  transform: rotate(90deg);
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-sync {
+  transform: rotate(180deg);
+}
+button:has(.i-lid):is(:hover, :focus-visible):not(:disabled):not(.btn-danger) {
+  background: var(--fail-ground);
+  color: var(--fail-text);
+}
+button:has(.i-lid):is(:hover, :focus-visible):not(:disabled) svg {
+  color: var(--fail-text);
+}
+@media (prefers-reduced-motion: reduce) {
+  button .i-lid,
+  button .i-pen,
+  button .i-plus,
+  button .i-sync {
+    transition: none;
+  }
+}
+
 .side-toggle:hover .i-move {
   transform: translateX(-1.5px);
 }
 
-.side-new:hover svg,
-.side-new-wide:hover svg {
-  transform: rotate(90deg);
-}
 
 .side-logout:hover .i-move {
   transform: translateX(1.5px);

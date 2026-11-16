@@ -1,5 +1,5 @@
 import '@/styles/sync.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import type { McpInput, McpList, McpServer, McpView as Server } from '@/lib/types';
 import { ask } from './ConfirmDialog';
@@ -28,6 +28,24 @@ export function McpView() {
   const [list, setList] = useState<McpList | null>(null);
   const [editing, setEditing] = useState<string | null>(null); // a name, or '' for a new one
   const [busy, setBusy] = useState<string | null>(null);
+  // What each server answered when asked for its tools; undefined while asking.
+  const [checks, setChecks] = useState<Record<string, { ok: boolean; tools: number; error?: string } | undefined>>({});
+  const check = (name: string) => {
+    setChecks((c) => ({ ...c, [name]: undefined }));
+    api.checkMcp(name).then(
+      (r) => setChecks((c) => ({ ...c, [name]: r })),
+      (err) => setChecks((c) => ({ ...c, [name]: { ok: false, tools: 0, error: err instanceof Error ? err.message : 'Orla could not ask it.' } })),
+    );
+  };
+  // Each ready server is asked once per visit, and again after it is saved.
+  const asked = useRef(new Set<string>());
+  useEffect(() => {
+    for (const s of list?.servers ?? []) {
+      if (s.state !== 'ready' || asked.current.has(s.name)) continue;
+      asked.current.add(s.name);
+      check(s.name);
+    }
+  }, [list]);
 
   const load = () =>
     api.mcp().then(setList, (err) => {
@@ -66,7 +84,12 @@ export function McpView() {
           server={editingServer}
           busy={busy === editing}
           onCancel={() => setEditing(null)}
-          onSave={async (name, x) => (await act(editing, () => api.saveMcp(name, x))) && setEditing(null)}
+          onSave={async (name, x) => {
+            if (await act(editing, () => api.saveMcp(name, x))) {
+              setEditing(null);
+              asked.current.delete(name);
+            }
+          }}
         />
       )}
     </SeaDialog>
@@ -129,9 +152,7 @@ export function McpView() {
                       </span>
                       <span className="sy-side">
                         <span className="sy-meta">
-                          <span className="mc-state" data-state={s.state} title={s.error || (s.state === 'taken' ? `Claude already has a server named ${s.name}, set up outside Orla.` : undefined)}>
-                            {STATE[s.state]}
-                          </span>
+                          <McpState s={s} check={checks[s.name]} />
                         </span>
                         <span className="sy-acts">
                           <button type="button" className="fl-act" disabled={!!busy || list.locked} onClick={() => setEditing(s.name)} aria-label={`Edit ${s.name}`}>
@@ -180,6 +201,30 @@ export function McpView() {
         )}
       </div>
     </div>
+  );
+}
+
+/** How a server stands: its tool count once it answered, or why it did not. */
+function McpState({ s, check }: { s: Server; check?: { ok: boolean; tools: number; error?: string } }) {
+  if (s.state !== 'ready') {
+    return (
+      <span className="mc-state" data-state={s.state} title={s.error || (s.state === 'taken' ? `Claude already has a server named ${s.name}, set up outside Orla.` : undefined)}>
+        {STATE[s.state]}
+      </span>
+    );
+  }
+  if (!check) return <span className="mc-state">Checking…</span>;
+  if (check.ok)
+    return (
+      <span className="mc-state" data-state="ok">
+        {check.tools === 1 ? '1 tool' : `${check.tools} tools`}
+      </span>
+    );
+  if (check.error === 'only HTTP servers are checked') return <span className="mc-state">{STATE.ready}</span>;
+  return (
+    <span className="mc-state" data-state="error" title={check.error}>
+      {check.error ? check.error.charAt(0).toUpperCase() + check.error.slice(1) : 'Failed'}
+    </span>
   );
 }
 

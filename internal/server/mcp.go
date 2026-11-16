@@ -83,3 +83,17 @@ func mcpStatus(err error) int {
 	}
 	return http.StatusUnprocessableEntity
 }
+
+// checkMCP asks a server for its tools, as Claude would.
+func (s *Server) checkMCP(w http.ResponseWriter, r *http.Request) {
+	if s.shelf == nil {
+		writeError(w, http.StatusNotFound, "This Orla keeps no library.")
+		return
+	}
+	c, err := s.shelf.CheckMCP(r.Context(), r.PathValue("name"))
+	if err != nil {
+		writeError(w, mcpStatus(err), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}

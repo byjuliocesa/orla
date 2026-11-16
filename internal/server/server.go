@@ -137,6 +137,7 @@ func New(d Deps) http.Handler {
 	api.HandleFunc("GET /v1/mcp", s.listMCP)
 	api.HandleFunc("PUT /v1/mcp/{name}", s.saveMCP)
 	api.HandleFunc("POST /v1/mcp/{name}/adopt", s.adoptMCP)
+	api.HandleFunc("POST /v1/mcp/{name}/check", s.checkMCP)
 	api.HandleFunc("DELETE /v1/mcp/{name}", s.removeMCP)
 	api.HandleFunc("GET /v1/prefs/{key}", s.getPref)
 	api.HandleFunc("PUT /v1/prefs/{key}", s.putPref)

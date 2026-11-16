@@ -2,6 +2,10 @@ package library
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,5 +107,41 @@ func TestEnrollListsEachMachineOnce(t *testing.T) {
 	b, _ = os.ReadFile(m.mcpPath(mcpMachines))
 	if n := strings.Count(string(b), "\n"); n != 1 {
 		t.Fatalf("machines has %d lines:\n%s", n, b)
+	}
+}
+
+func TestProbeCountsTools(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer k" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var m struct {
+			ID     any    `json:"id"`
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		w.Header().Set("Mcp-Session-Id", "s1")
+		switch m.Method {
+		case "initialize":
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n")
+		case "tools/list":
+			if r.Header.Get("Mcp-Session-Id") != "s1" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"a"},{"name":"b"}]}}`)
+		default:
+			w.WriteHeader(http.StatusAccepted)
+		}
+	}))
+	defer srv.Close()
+	n, err := probe(context.Background(), srv.URL, map[string]string{"Authorization": "Bearer k"})
+	if err != nil || n != 2 {
+		t.Fatalf("probe = %d, %v", n, err)
+	}
+	if _, err := probe(context.Background(), srv.URL, nil); err == nil || !strings.Contains(err.Error(), "401") {
+		t.Fatalf("without the key: %v", err)
 	}
 }

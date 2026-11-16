@@ -146,6 +146,7 @@ export const api = {
   mcp: () => call<McpList>('GET', '/v1/mcp'),
   saveMcp: (name: string, server: McpInput) => call<McpList>('PUT', `/v1/mcp/${encodeURIComponent(name)}`, server),
   adoptMcp: (name: string) => call<McpList>('POST', `/v1/mcp/${encodeURIComponent(name)}/adopt`),
+  checkMcp: (name: string) => call<{ ok: boolean; tools: number; error?: string }>('POST', `/v1/mcp/${encodeURIComponent(name)}/check`),
   removeMcp: (name: string) => call<McpList>('DELETE', `/v1/mcp/${encodeURIComponent(name)}`),
   generateLibraryKey: () => call<LibraryKey>('POST', '/v1/library/key'),
   setLibraryKey: (privateKey: string) => call<LibraryKey>('PUT', '/v1/library/key', { private: privateKey }),

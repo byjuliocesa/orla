@@ -53,7 +53,7 @@ export const Waiting = () => (
 );
 export const Plus = () => (
   <Icon>
-    <path d="M8 3v10M3 8h10" />
+    <path className="i-plus" d="M8 3v10M3 8h10" />
   </Icon>
 );
 export const TerminalIcon = () => (
@@ -98,8 +98,10 @@ export const PanelLeft = () => (
 );
 export const Pencil = () => (
   <Icon>
-    <path d="M10.5 3.5 12.5 5.5 6 12H4v-2z" />
-    <path d="M9 5l2 2" />
+    <g className="i-pen">
+      <path d="M10.5 3.5 12.5 5.5 6 12H4v-2z" />
+      <path d="M9 5l2 2" />
+    </g>
   </Icon>
 );
 export const Pin = () => (

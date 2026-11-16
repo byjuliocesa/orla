@@ -491,7 +491,10 @@
   cursor: help;
 }
 /* Actions show on the row the pointer or focus is on; touch screens always show them. */
+/* Above the meta it covers: the meta, fading, would otherwise sit on top and take the click. */
 .sy-acts {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   gap: 2px;
   opacity: 0;
@@ -849,6 +852,9 @@
 .mc-state[data-state='taken'] {
   color: var(--wait-text);
   cursor: help;
+}
+.mc-state[data-state='ok'] {
+  color: var(--ok);
 }
 .mc-state[data-state='error'] {
   color: var(--fail-text);
