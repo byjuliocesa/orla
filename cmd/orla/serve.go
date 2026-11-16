@@ -81,6 +81,8 @@ func serve(args []string) error {
 		"claude": claude,
 	})
 	sessions.ApprovalsAt("http://" + *addr + "/mcp/runs/")
+	// Pictures the agent reads are kept with the uploads, where the browser fetches them.
+	sessions.KeepMedia(filepath.Join(*dataDir, "uploads"))
 	if err := sessions.Recover(ctx); err != nil {
 		return fmt.Errorf("recovering runs: %w", err)
 	}

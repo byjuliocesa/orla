@@ -1996,3 +1996,52 @@
 .feed > .queued .prompt-text {
   max-width: min(78%, 680px);
 }
+
+/* Pictures a tool returned, such as screenshots: thumbnails in the timeline that open the viewer,
+   which steps through every picture of the run. */
+.step-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.step-image {
+  display: block;
+  width: 200px;
+  height: 125px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px var(--press);
+  cursor: zoom-in;
+  transition:
+    box-shadow 120ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.step-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+.step-image:hover {
+  box-shadow: inset 0 0 0 1px rgba(var(--sea-crest), 0.28);
+  transform: translateY(-1px);
+}
+.step-image:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 520px) {
+  .step-image {
+    width: calc(50vw - 28px);
+    height: calc((50vw - 28px) * 0.625);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-image {
+    transition: none;
+  }
+}

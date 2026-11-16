@@ -14,6 +14,8 @@ import { Tooltip } from './Tooltip';
 
 interface Ctx {
   session: string;
+  /** Opens a picture from a tool result in the run's viewer. */
+  openImage?: (id: string) => void;
   cwd: string;
   now: number;
   /** Steps made by events after this seq arrived live, and enter with motion. */
@@ -31,7 +33,10 @@ interface Ctx {
 }
 
 export function RunBlock({ run, ctx }: { run: RunView; limits?: Limits; ctx: Omit<Ctx, 'runOpen'> }) {
-  const c: Ctx = { ...ctx, runOpen: run.status === 'running' };
+  const [image, setImage] = useState<string | null>(null);
+  const pictures = imagesOf(run.steps);
+  const c: Ctx = { ...ctx, runOpen: run.status === 'running', openImage: setImage };
+  const shown = pictures.find((a) => a.key === image);
   const sent = parsePrompt(run.prompt);
   const answer = run.steps.flatMap((s) => (s.kind === 'message' ? [s.text.trim()] : [])).join('\n\n');
   const chapterTitle = firstWords(sent.text);
@@ -85,7 +90,45 @@ export function RunBlock({ run, ctx }: { run: RunView; limits?: Limits; ctx: Omi
         </div>
       )}
       {run.status !== 'running' && answer && !ctx.inherited && <Actions side="start" text={answer} at={run.finished ?? run.started} now={ctx.now} fork={ctx.fork && (() => ctx.fork!(run.id))} />}
+      {shown && <AttachmentPreview items={pictures} current={shown} go={setImage} onClose={() => setImage(null)} />}
     </section>
+  );
+}
+
+/** Every picture the run's tools returned, in order, as the viewer's items. */
+function imagesOf(steps: Step[]): Attachment[] {
+  const out: Attachment[] = [];
+  const walk = (list: Step[]) => {
+    for (const s of list) {
+      if (s.kind !== 'tool') continue;
+      // A picture the agent read is named after its file; image-1.png says nothing.
+      const path = (s.input as { file_path?: unknown } | null)?.file_path;
+      const file = typeof path === 'string' ? path.split('/').pop() : undefined;
+      for (const i of s.result?.images ?? []) {
+        const name = file || i.name;
+        out.push({ key: i.id, name, type: i.type, size: i.size, progress: 1, upload: { id: i.id, name, type: i.type, size: i.size, path: '' } });
+      }
+      walk(s.children);
+    }
+  };
+  walk(steps);
+  return out;
+}
+
+/** The pictures some steps returned, as a row of thumbnails that open the viewer. */
+function StepImages({ steps, ctx }: { steps: Step[]; ctx: Ctx }) {
+  const pics = imagesOf(steps);
+  if (!pics.length || !ctx.openImage) return null;
+  return (
+    <ul className="step-images" aria-label="Images">
+      {pics.map((p) => (
+        <li key={p.key}>
+          <button type="button" className="step-image" onClick={() => ctx.openImage!(p.key)} aria-label={`Open ${p.name}`}>
+            <img src={`/v1/uploads/${p.key}`} alt="" loading="lazy" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -266,6 +309,7 @@ function ToolGroup({ steps, ctx }: { steps: Step[]; ctx: Ctx }) {
           <Steps steps={steps} ctx={ctx} />
         </div>
       )}
+      <StepImages steps={steps} ctx={ctx} />
     </div>
   );
 }

@@ -90,6 +90,12 @@ type claudeBlock struct {
 	ToolUseID string          `json:"tool_use_id"`
 	Content   json.RawMessage `json:"content"`
 	IsError   bool            `json:"is_error"`
+	// Source is an image's data, in an image block.
+	Source *struct {
+		Type      string `json:"type"`
+		MediaType string `json:"media_type"`
+		Data      string `json:"data"`
+	} `json:"source"`
 }
 
 // Line parses one line of output. Lines it does not know, or cannot parse, yield nothing:
@@ -190,8 +196,12 @@ func (p *claudeParser) user(l claudeLine) []Out {
 			continue
 		}
 		text, truncated := truncate(toolText(b.Content), maxToolOutput)
-		out = append(out, Out{events.ToolResult, with(base,
-			"call_id", b.ToolUseID, "ok", !b.IsError, "output", text, "truncated", truncated)})
+		data := with(base, "call_id", b.ToolUseID, "ok", !b.IsError, "output", text, "truncated", truncated)
+		if imgs := toolImages(b.Content); len(imgs) > 0 {
+			// Base64 here; the session keeps each as a file and leaves only its id in the event.
+			data["images"] = imgs
+		}
+		out = append(out, Out{events.ToolResult, data})
 	}
 	return out
 }
@@ -216,6 +226,21 @@ func toolText(raw json.RawMessage) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+// toolImages are the pictures in a tool result, such as a screenshot the agent read.
+func toolImages(raw json.RawMessage) []map[string]any {
+	var blocks []claudeBlock
+	if json.Unmarshal(raw, &blocks) != nil {
+		return nil
+	}
+	var out []map[string]any
+	for _, b := range blocks {
+		if b.Type == "image" && b.Source != nil && b.Source.Type == "base64" && b.Source.Data != "" {
+			out = append(out, map[string]any{"media_type": b.Source.MediaType, "data": b.Source.Data})
+		}
+	}
+	return out
 }
 
 func truncate(s string, max int) (string, bool) {

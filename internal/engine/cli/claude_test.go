@@ -177,3 +177,20 @@ sleep 30
 		t.Fatal("a process the CLI started kept running after cancel")
 	}
 }
+
+func TestToolResultCarriesItsImages(t *testing.T) {
+	p := newClaudeParser()
+	line := `{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"read"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}}]}]}}`
+	out := p.Line([]byte(line))
+	if len(out) != 1 {
+		t.Fatalf("got %d events", len(out))
+	}
+	d := out[0].Data.(map[string]any)
+	imgs, _ := d["images"].([]map[string]any)
+	if len(imgs) != 1 || imgs[0]["media_type"] != "image/png" || imgs[0]["data"] != "iVBORw0KGgo=" {
+		t.Fatalf("images = %#v", d["images"])
+	}
+	if d["output"] != "read\n[image]" {
+		t.Fatalf("output = %q", d["output"])
+	}
+}

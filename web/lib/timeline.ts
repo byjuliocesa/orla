@@ -23,6 +23,14 @@ export interface Approval {
   };
 }
 
+/** A picture a tool returned, such as a screenshot the agent read, kept as an upload. */
+export interface ResultImage {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
 export interface ToolStep {
   kind: 'tool';
   /** Seq of the event that made the step, to tell steps that arrived live. */
@@ -31,7 +39,7 @@ export interface ToolStep {
   name: string;
   input: unknown;
   at: string;
-  result?: { ok: boolean; output: string; truncated: boolean; interrupted: boolean; at: string };
+  result?: { ok: boolean; output: string; truncated: boolean; interrupted: boolean; at: string; images?: ResultImage[] };
   approval?: Approval;
   /** Steps of a subagent this call started. */
   children: Step[];
@@ -191,6 +199,7 @@ export function buildTimeline(events: readonly OrlaEvent[]): Timeline {
           truncated: d.truncated === true,
           interrupted: d.interrupted === true,
           at: e.time,
+          images: Array.isArray(d.images) ? (d.images as ResultImage[]).filter((i) => typeof i?.id === 'string') : [],
         };
         break;
       }
