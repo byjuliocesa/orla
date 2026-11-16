@@ -37,7 +37,7 @@ func TestMCPSecretsTravelEncrypted(t *testing.T) {
 	claude, calls := fakeClaude(t)
 	a.Claude = claude
 
-	err := a.SaveMCP(ctx, MCPInput{Name: "vx-bot", Type: "http", URL: "https://work.example/v1/mcp", Headers: map[string]string{"Authorization": "Bearer s3cret"}})
+	err := a.SaveMCP(ctx, MCPInput{Name: "tracker", Type: "http", URL: "https://work.example/v1/mcp", Headers: map[string]string{"Authorization": "Bearer s3cret"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,16 +51,16 @@ func TestMCPSecretsTravelEncrypted(t *testing.T) {
 		}
 	}
 	got, _ := os.ReadFile(calls)
-	if !strings.Contains(string(got), `add-json -s user vx-bot {"headers":{"Authorization":"Bearer s3cret"},"type":"http","url":"https://work.example/v1/mcp"}`) {
+	if !strings.Contains(string(got), `add-json -s user tracker {"headers":{"Authorization":"Bearer s3cret"},"type":"http","url":"https://work.example/v1/mcp"}`) {
 		t.Fatalf("claude was told:\n%s", got)
 	}
 
 	// An empty value keeps the saved one.
-	if err := a.SaveMCP(ctx, MCPInput{Name: "vx-bot", Type: "http", URL: "https://work.example/v2/mcp", Headers: map[string]string{"Authorization": ""}}); err != nil {
+	if err := a.SaveMCP(ctx, MCPInput{Name: "tracker", Type: "http", URL: "https://work.example/v2/mcp", Headers: map[string]string{"Authorization": ""}}); err != nil {
 		t.Fatal(err)
 	}
 	sec, ok, err := a.openSecrets()
-	if err != nil || !ok || sec.Servers["vx-bot"].Headers["Authorization"] != "Bearer s3cret" {
+	if err != nil || !ok || sec.Servers["tracker"].Headers["Authorization"] != "Bearer s3cret" {
 		t.Fatalf("kept value: %+v %v %v", sec, ok, err)
 	}
 
@@ -79,7 +79,7 @@ func TestMCPSecretsTravelEncrypted(t *testing.T) {
 		t.Fatalf("second machine after: %+v", list)
 	}
 
-	if err := a.RemoveMCP(ctx, "vx-bot"); err != nil {
+	if err := a.RemoveMCP(ctx, "tracker"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(a.mcpPath(mcpSecrets)); !os.IsNotExist(err) {

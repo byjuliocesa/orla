@@ -96,7 +96,7 @@ export function McpView() {
           </button>
         }
       >
-        Tools the agent reaches, like VX Work. Their keys travel encrypted to your other machines.
+        Tools the agent reaches, like GitHub or Linear. Their keys travel encrypted to your other machines.
       </EmptyState>
       </>
     );
@@ -221,7 +221,7 @@ function McpForm({ server, busy, onSave, onCancel }: { server?: Server; busy: bo
             <label className="sy-label" htmlFor={`${id}-name`}>
               Name
             </label>
-            <input id={`${id}-name`} className="sy-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="vx-work" spellCheck={false} autoComplete="off" autoFocus />
+            <input id={`${id}-name`} className="sy-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="github" spellCheck={false} autoComplete="off" autoFocus />
           </>
         )}
         <label className="sy-label" htmlFor={`${id}-addr`}>
