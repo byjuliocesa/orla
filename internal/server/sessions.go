@@ -41,6 +41,9 @@ type sessionView struct {
 }
 
 func (s *Server) view(ctx context.Context, x store.Session) sessionView {
+	if x.SkillsAlways == nil {
+		x.SkillsAlways = []string{}
+	}
 	if x.SkillsOff == nil {
 		x.SkillsOff = []string{} // a list, never null, for clients
 	}
@@ -153,6 +156,8 @@ func (s *Server) updateSession(w http.ResponseWriter, r *http.Request) {
 		SkillsOff *[]string `json:"skills_off"`
 		// Flows replaces the flows this session follows.
 		Flows *[]string `json:"flows"`
+		// SkillsAlways replaces the skills loaded whole into every message.
+		SkillsAlways *[]string `json:"skills_always"`
 	}
 	if !decode(w, r, &body) {
 		return
@@ -180,6 +185,9 @@ func (s *Server) updateSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Flows != nil {
 		err = errors.Join(err, s.store.SetSessionFlows(ctx, x.ID, *body.Flows))
+	}
+	if body.SkillsAlways != nil {
+		err = errors.Join(err, s.store.SetSessionSkillsAlways(ctx, x.ID, *body.SkillsAlways))
 	}
 	if body.SkillsOff != nil || body.Flows != nil {
 		if body.SkillsOff != nil {

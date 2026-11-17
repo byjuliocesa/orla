@@ -168,7 +168,7 @@ export const api = {
     call<Session>('POST', '/v1/sessions', { cwd, agent }),
   startRun: (session: string, opts: RunOptions) =>
     call<{ id: string }>('POST', `/v1/sessions/${session}/runs`, opts),
-  updateSession: (session: string, change: { title?: string; pinned?: boolean; archived?: boolean ;  skills_off?: string[]; flows?: string[] }) =>
+  updateSession: (session: string, change: { title?: string; pinned?: boolean; archived?: boolean ;  skills_off?: string[]; skills_always?: string[]; flows?: string[] }) =>
     call<Session>('PATCH', `/v1/sessions/${session}`, change),
   deleteSession: (session: string) => call<void>('DELETE', `/v1/sessions/${session}`),
   cancel: (session: string) => call<void>('POST', `/v1/sessions/${session}/cancel`),

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { api } from '@/lib/api';
 import type { Session } from '@/lib/types';
-import { ChevronRight, Cross, Grip, Pencil, Plus } from './Icons';
+import { ChevronRight, Cross, Grip, Pencil, Pin, Plus } from './Icons';
 import { toast } from './Toast';
 import { Tooltip } from './Tooltip';
 
@@ -94,6 +94,23 @@ export function SkillsView({ session, onChanged }: { session: Session; onChanged
   const drag = useRef<Drag | null>(null);
 
   useEffect(() => setOff(new Set(session.skills_off ?? [])), [session.skills_off]);
+  const [always, setAlways] = useState<Set<string>>(() => new Set(session.skills_always ?? []));
+  useEffect(() => setAlways(new Set(session.skills_always ?? [])), [session.skills_always]);
+  // A kept skill goes whole into every message: the agent works by it without choosing to open it.
+  const keepLoaded = async (name: string) => {
+    const before = always;
+    const next = new Set(always);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    setAlways(next);
+    try {
+      await api.updateSession(session.id, { skills_always: [...next].sort() });
+      onChanged();
+    } catch (err) {
+      setAlways(before);
+      toast(err instanceof Error ? err.message : 'The change did not reach Orla.');
+    }
+  };
   useEffect(() => {
     let stale = false;
     setError('');
@@ -381,6 +398,14 @@ export function SkillsView({ session, onChanged }: { session: Session; onChanged
                           <Tooltip label="What it takes in the context of every message while it is on" side="top">
                             <span className="sk-tokens num">{tokens(s.tokens)} tokens</span>
                           </Tooltip>
+                          {!isOn && <span className="sk-gap" aria-hidden="true" />}
+                          {isOn && (
+                            <Tooltip label={always.has(s.name) ? 'Loaded in every message. Click to load only when needed' : 'Load in every message of this session'} side="top">
+                              <button type="button" className="icon-btn sk-icon sk-always" aria-pressed={always.has(s.name)} aria-label={`Always load ${shortName(s.name)}`} onClick={() => void keepLoaded(s.name)}>
+                                <Pin />
+                              </button>
+                            </Tooltip>
+                          )}
                           <button
                             type="button"
                             role="switch"

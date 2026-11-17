@@ -1741,7 +1741,8 @@
 .sk-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  /* text, tokens, keep-loaded pin, switch */
+  grid-template-columns: minmax(0, 1fr) auto 26px auto;
   align-items: center;
   gap: 14px;
   padding: 9px 10px 9px 28px;
@@ -2043,5 +2044,22 @@
 @media (prefers-reduced-motion: reduce) {
   .step-image {
     transition: none;
+  }
+}
+
+/* Keeping a skill loaded: the pin shows on the row's hover, and stays lit while it is kept. */
+.sk-gap {
+  width: 26px;
+}
+.sk-row:hover .sk-always,
+.sk-always[aria-pressed='true'] {
+  opacity: 1;
+}
+.sk-always[aria-pressed='true'] {
+  color: var(--accent);
+}
+@media (hover: none) {
+  .sk-always {
+    opacity: 1;
   }
 }

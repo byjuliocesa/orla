@@ -400,8 +400,16 @@ button .i-lid,
 button .i-pen,
 button .i-plus,
 button .i-sync,
-button .i-key {
+button .i-key,
+button .i-pin {
   transition: transform 260ms var(--ease-out);
+}
+button .i-pin {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+button:is(:hover, :focus-visible):not(:disabled) .i-pin {
+  transform: rotate(-14deg) translateY(-1px);
 }
 button .i-pen,
 button .i-plus {

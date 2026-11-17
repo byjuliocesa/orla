@@ -32,6 +32,8 @@ type Session struct {
 	ForkRun    string `json:"fork_run,omitempty"`
 	// SkillsOff are the skills this session's conversations leave out.
 	SkillsOff []string `json:"skills_off"`
+	// SkillsAlways are the skills loaded whole into every message of this session.
+	SkillsAlways []string `json:"skills_always"`
 	// Flows are the flow skills this session follows; every other flow is off.
 	Flows []string `json:"flows"`
 }
@@ -83,7 +85,7 @@ func (s *Store) Sessions(ctx context.Context) ([]Session, error) {
 
 func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Session, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, agent, cwd, native_session, terminal, created, title, pinned, archived, fork_of, fork_at, fork_parent, fork_run, skills_off, flows FROM sessions `+where, args...)
+		`SELECT id, agent, cwd, native_session, terminal, created, title, pinned, archived, fork_of, fork_at, fork_parent, fork_run, skills_off, flows, skills_always FROM sessions `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +95,9 @@ func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Sess
 		var x Session
 		var created string
 		var archived sql.NullString
-		var skillsOff, flows string
+		var skillsOff, flows, always string
 		if err := rows.Scan(&x.ID, &x.Agent, &x.Cwd, &x.NativeSession, &x.Terminal, &created,
-			&x.Title, &x.Pinned, &archived, &x.ForkOf, &x.ForkAt, &x.ForkParent, &x.ForkRun, &skillsOff, &flows); err != nil {
+			&x.Title, &x.Pinned, &archived, &x.ForkOf, &x.ForkAt, &x.ForkParent, &x.ForkRun, &skillsOff, &flows, &always); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(skillsOff), &x.SkillsOff)
@@ -105,6 +107,10 @@ func (s *Store) sessions(ctx context.Context, where string, args ...any) ([]Sess
 		}
 		if x.SkillsOff == nil {
 			x.SkillsOff = []string{}
+		}
+		_ = json.Unmarshal([]byte(always), &x.SkillsAlways)
+		if x.SkillsAlways == nil {
+			x.SkillsAlways = []string{}
 		}
 		x.Created, _ = time.Parse(time.RFC3339Nano, created)
 		if archived.Valid {
@@ -239,6 +245,16 @@ func (s *Store) SetSessionSkillsOff(ctx context.Context, id string, names []stri
 	}
 	b, _ := json.Marshal(names)
 	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET skills_off = ? WHERE id = ?`, string(b), id)
+	return err
+}
+
+// SetSessionSkillsAlways sets the skills a session loads whole into every message.
+func (s *Store) SetSessionSkillsAlways(ctx context.Context, id string, names []string) error {
+	if names == nil {
+		names = []string{}
+	}
+	b, _ := json.Marshal(names)
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET skills_always = ? WHERE id = ?`, string(b), id)
 	return err
 }
 

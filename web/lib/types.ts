@@ -50,6 +50,8 @@ export interface Session {
   fork_run?: string;
   /** Skills this session leaves out of its conversation. */
   skills_off?: string[];
+  /** Skills loaded whole into every message of this session. */
+  skills_always?: string[];
   /** Flow skills this session follows; every other flow is off. */
   flows?: string[];
 }

@@ -19,6 +19,10 @@ You may be running inside an Orla session right now: `ORLA_RUN` in your environm
 - A session is one conversation with the agent, in one folder. Each message is a run, and each
   run starts Claude Code afresh, resuming the conversation: a new MCP server, skill, setting or
   Claude version applies from the next message, with no restart.
+- A session's Skills tab turns skills on or off for it, and its pin keeps a skill loaded: the
+  skill's SKILL.md goes whole into the instructions of every message of that session, so the
+  agent works by it from the start without choosing to open it. It costs that much context in
+  every message.
 - A permission prompt reaches the owner in Orla, in the browser or with `orla approve`. A request
   nobody answers is denied after 10 minutes.
 - A session can start in a worktree of its own: a branch `orla/<name>` in a folder under

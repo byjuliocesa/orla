@@ -238,7 +238,7 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 			Run: run.ID, Cwd: sess.Cwd, Prompt: opts.Prompt, Resume: resume, Fork: fork,
 			ResumeAt:       resumeAt,
 			Settings:       cli.SkillSettings(Off(sess)),
-			System:         System(opts.Prompt),
+			System:         System(opts.Prompt) + Always(userHome(), sess.Cwd, sess.SkillsAlways),
 			PermissionMode: opts.PermissionMode, Model: opts.Model, Effort: opts.Effort, AddDirs: opts.AddDirs,
 		}
 		if s.approvalsURL != "" {
@@ -386,4 +386,3 @@ func (s *Service) unwatchFiles(session string) {
 		w.Stop()
 	}
 }
-
