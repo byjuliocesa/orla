@@ -36,6 +36,8 @@ type sessionView struct {
 	Pending int        `json:"pending"`
 	Updated *time.Time `json:"updated,omitempty"`
 	LastRun *store.Run `json:"last_run,omitempty"`
+	// Mode is the permission mode of the latest message, for the next one to start in.
+	Mode string `json:"permission_mode,omitempty"`
 	// Worktree is set when the session works in a worktree Orla made.
 	Worktree *store.Worktree `json:"worktree,omitempty"`
 }
@@ -59,6 +61,7 @@ func (s *Server) view(ctx context.Context, x store.Session) sessionView {
 	}
 	if run, err := s.store.LatestRun(ctx, x.ID); err == nil {
 		v.LastRun = &run
+		v.Mode = s.store.LastMode(ctx, x.ID)
 	}
 	v.Pending = s.sessions.PendingCount(x.ID)
 	if wt, err := s.store.WorktreeFor(ctx, x.Cwd); err == nil {

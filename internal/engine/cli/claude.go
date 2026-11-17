@@ -32,10 +32,13 @@ type claudeParser struct {
 	// A response with several content blocks arrives as several "assistant" lines that repeat
 	// the same message id and usage; usage is counted once per message.
 	counted map[string]bool
+	// hooked holds, by call id, why a hook stopped a tool call: the CLI lists those among its
+	// permission denials, though no permission was missing.
+	hooked map[string]string
 }
 
 func newClaudeParser() *claudeParser {
-	return &claudeParser{counted: map[string]bool{}}
+	return &claudeParser{counted: map[string]bool{}, hooked: map[string]string{}}
 }
 
 type claudeLine struct {
@@ -196,6 +199,9 @@ func (p *claudeParser) user(l claudeLine) []Out {
 			continue
 		}
 		text, truncated := truncate(toolText(b.Content), maxToolOutput)
+		if b.IsError && strings.HasPrefix(text, "PreToolUse:") {
+			p.hooked[b.ToolUseID] = text
+		}
 		data := with(base, "call_id", b.ToolUseID, "ok", !b.IsError, "output", text, "truncated", truncated)
 		if imgs := toolImages(b.Content); len(imgs) > 0 {
 			// Base64 here; the session keeps each as a file and leaves only its id in the event.
@@ -299,11 +305,23 @@ func (p *claudeParser) result(l claudeLine) []Out {
 
 	var denials []json.RawMessage
 	if json.Unmarshal(l.PermissionDenials, &denials) == nil && len(denials) > 0 {
-		out = append(out, Out{events.Error, map[string]any{
-			"message":   "tools were refused for lack of permission",
-			"denials":   denials,
-			"retryable": true,
-		}})
+		var refused []json.RawMessage
+		for _, d := range denials {
+			var id struct {
+				ID string `json:"tool_use_id"`
+			}
+			if json.Unmarshal(d, &id) == nil && p.hooked[id.ID] != "" {
+				continue // a hook said no, and the tool result already says why
+			}
+			refused = append(refused, d)
+		}
+		if len(refused) > 0 {
+			out = append(out, Out{events.Error, map[string]any{
+				"message":   "tools were refused for lack of permission",
+				"denials":   refused,
+				"retryable": true,
+			}})
+		}
 	}
 	return out
 }

@@ -424,6 +424,7 @@ function Composer({
         onStop={inTerminal ? undefined : onStop}
         queued={queued}
         cwd={session.cwd}
+        sessionMode={session.permission_mode}
       />
     </div>
   );

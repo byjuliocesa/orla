@@ -381,6 +381,7 @@ export function PromptBox({
   busy = false,
   autoFocus = true,
   onSending,
+  sessionMode,
   onQueue,
   onStop,
   queued = 0,
@@ -399,6 +400,8 @@ export function PromptBox({
   busy?: boolean;
   autoFocus?: boolean;
   onSending?: (sending: boolean) => void;
+  /** The mode the session's latest message ran in: the picker starts there, not at the saved choice. */
+  sessionMode?: string;
   /** While a run is in progress, a send goes here instead: the message waits in line. */
   onQueue?: (o: Outgoing) => void;
   /** Stops the run in progress (the stop button, Esc). */
@@ -409,6 +412,14 @@ export function PromptBox({
   cwd?: string;
 }) {
   const [prefs, set] = usePrefs();
+  // Picked here, it wins; until then the session's own mode does, so a session an automation
+  // ran in auto mode goes on in auto mode.
+  const [picked, setPicked] = useState<string>();
+  const mode = picked ?? (sessionMode && MODES.some((m) => m.id === sessionMode) ? sessionMode : prefs.mode);
+  const setMode = (m: string) => {
+    setPicked(m);
+    set({ mode: m });
+  };
   const [prompt, setPrompt] = useState(() => {
     try {
       return localStorage.getItem(draftKey) ?? '';
@@ -641,7 +652,7 @@ export function PromptBox({
         attachments: files.ids.length ? files.ids : undefined,
         model: prefs.model,
         effort: prefs.effort,
-        mode: prefs.mode,
+        mode,
         ultracode: prefs.ultracode || undefined,
       });
       setPrompt('');
@@ -664,7 +675,7 @@ export function PromptBox({
         attachments: files.ids.length ? files.ids : undefined,
         model: prefs.model,
         effort: prefs.effort,
-        mode: prefs.mode,
+        mode,
         ultracode: prefs.ultracode || undefined,
       });
       // Sent: the draft is done with.
@@ -736,8 +747,8 @@ export function PromptBox({
       onStop();
     } else if (e.key === 'Tab' && e.shiftKey && !sending) {
       e.preventDefault();
-      const i = MODES.findIndex((m) => m.id === prefs.mode);
-      set({ mode: MODES[(i + 1) % MODES.length]!.id });
+      const i = MODES.findIndex((m) => m.id === mode);
+      setMode(MODES[(i + 1) % MODES.length]!.id);
     }
   };
 
@@ -890,18 +901,18 @@ export function PromptBox({
               <button
                 type="button"
                 className="nc-pill nc-mode"
-                data-mode={prefs.mode}
+                data-mode={mode}
                 aria-haspopup="menu"
                 aria-expanded={menu === 'mode'}
                 onClick={() => setMenu(menu === 'mode' ? null : 'mode')}
                 disabled={sending}
               >
-                <span className="nc-pill-label">{modeName(prefs.mode)}</span>
+                <span className="nc-pill-label">{modeName(mode)}</span>
                 <span className="nc-pill-chev" aria-hidden="true">
                   <ChevronRight />
                 </span>
               </button>
-              {menu === 'mode' && <ModeMenu mode={prefs.mode} set={(mode) => set({ mode })} onClose={closeMenu} />}
+              {menu === 'mode' && <ModeMenu mode={mode} set={setMode} onClose={closeMenu} />}
             </div>
             <span className="nc-grow" />
             <UsageRing refreshKey={sentCount} />

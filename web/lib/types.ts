@@ -40,6 +40,8 @@ export interface Session {
   pending: number;
   updated?: string;
   last_run?: Run;
+  /** The permission mode of the latest message, which the next one starts in. */
+  permission_mode?: string;
   /** Set when the session works in a worktree Orla made. */
   worktree?: Worktree;
   /** The owner's name for it, in place of the folder. */

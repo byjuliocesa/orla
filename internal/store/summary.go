@@ -52,3 +52,16 @@ func (s *Store) Activity(ctx context.Context, session string) (Activity, error) 
 	a.State = state.String
 	return a, nil
 }
+
+// LastMode is the permission mode the session's latest message was sent in; empty when it said
+// none, or there is no message yet.
+func (s *Store) LastMode(ctx context.Context, session string) string {
+	var mode sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT json_extract(data, '$.permission_mode') FROM events WHERE session = ? AND type = 'run.started' ORDER BY seq DESC LIMIT 1`,
+		session).Scan(&mode)
+	if err != nil {
+		return ""
+	}
+	return mode.String
+}
