@@ -24,7 +24,8 @@ You may be running inside an Orla session right now: `ORLA_RUN` in your environm
   agent works by it from the start without choosing to open it. It costs that much context in
   every message.
 - A permission prompt reaches the owner in Orla, in the browser or with `orla approve`. A request
-  nobody answers is denied after 10 minutes.
+  nobody answers is denied after 10 minutes. The request says the permission mode its message
+  was sent in (`permission_mode`), so an automation can answer the ones of a given mode.
 - A session can start in a worktree of its own: a branch `orla/<name>` in a folder under
   `~/.local/share/orla/worktrees`. Its Changes tab commits, merges back and removes it. Discarded
   work goes to a git stash, never lost.
@@ -61,8 +62,10 @@ Library tabs:
   skill in; *Remove* takes it out and leaves it on this machine only.
 - **Flows**: skills marked `metadata: orla: flow`, the steps for a kind of task. A session
   follows the flows it picks. `/newflow`, `/editflow`, `/archiveflow`, `/deleteflow`.
-- **Automations**: scripts Orla runs and watches, costing no tokens. `/newautomation`,
-  `/editautomation`.
+- **Automations**: scripts Orla runs and watches, costing no tokens: always, every some
+  minutes, or on an event such as `approval.requested`. Each run gets `ORLA_URL` and
+  `ORLA_TOKEN`, so a script can use Orla's API: open sessions, send them messages with a model and
+  a permission mode, answer approvals. `/newautomation`, `/editautomation`.
 - **MCP**: servers the agent reaches. Orla writes each one into Claude's user config
   (`claude mcp add-json -s user`) and checks it, showing how many tools it lists or why it
   failed. A bare token in an `Authorization` header gets `Bearer` in front. *Move in* brings a
