@@ -38,6 +38,8 @@ type pending struct {
 	expires time.Time
 	// terminal is set when the CLI asks in an Orla terminal, which shows the same prompt.
 	terminal string
+	// mode is the permission mode of the run that asks; empty for a terminal.
+	mode string
 	// ended receives the one ending of the request.
 	ended chan ending
 }
@@ -109,11 +111,14 @@ func (s *Service) openApproval(ctx context.Context, p *pending, tool string, inp
 	p.expires = p.asked.Add(s.approvalWait)
 	s.mu.Lock()
 	s.approvals[approvalID] = p
+	if a := s.active[p.sess.ID]; a != nil && a.run == p.run {
+		p.mode = a.mode
+	}
 	s.mu.Unlock()
 
 	data := map[string]any{
 		"approval_id": approvalID, "tool": tool, "input": input, "call_id": p.callID,
-		"expires_at": p.expires,
+		"expires_at": p.expires, "permission_mode": p.mode,
 	}
 	if p.terminal != "" {
 		data["terminal"] = p.terminal
@@ -170,6 +175,7 @@ type PendingApproval struct {
 	Input    json.RawMessage `json:"input"`
 	CallID   string          `json:"call_id,omitempty"`
 	Terminal string          `json:"terminal,omitempty"`
+	Mode     string          `json:"permission_mode,omitempty"`
 	Asked    time.Time       `json:"asked_at"`
 	Expires  time.Time       `json:"expires_at"`
 }
@@ -182,7 +188,7 @@ func (s *Service) PendingApprovals() []PendingApproval {
 	for approvalID, p := range s.approvals {
 		out = append(out, PendingApproval{
 			ID: approvalID, Session: p.sess.ID, Run: p.run, Tool: p.tool, Input: p.input,
-			CallID: p.callID, Terminal: p.terminal, Asked: p.asked, Expires: p.expires,
+			CallID: p.callID, Terminal: p.terminal, Mode: p.mode, Asked: p.asked, Expires: p.expires,
 		})
 	}
 	slices.SortFunc(out, func(a, b PendingApproval) int { return a.Asked.Compare(b.Asked) })

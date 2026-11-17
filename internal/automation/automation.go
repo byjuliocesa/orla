@@ -158,6 +158,10 @@ func (t Trigger) Matches(event string) bool {
 
 func files(dir string) []string {
 	out := []string{}
+	// The library links its automations in: walk the folder, not the link.
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
 	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil || len(out) >= 100 {
 			return filepath.SkipDir

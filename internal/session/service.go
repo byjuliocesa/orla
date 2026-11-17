@@ -81,6 +81,8 @@ type Service struct {
 type active struct {
 	run    string
 	cancel context.CancelFunc
+	// mode is the permission mode the run was started in, told with its approval requests.
+	mode string
 }
 
 func NewService(log *slog.Logger, st *store.Store, bus *events.Bus, runners map[string]Runner) *Service {
@@ -209,7 +211,7 @@ func (s *Service) Start(ctx context.Context, sessionID string, opts RunOptions) 
 		cancel()
 		return store.Run{}, ErrBusy
 	}
-	s.active[sess.ID] = &active{run: run.ID, cancel: cancel}
+	s.active[sess.ID] = &active{run: run.ID, cancel: cancel, mode: opts.PermissionMode}
 	s.mu.Unlock()
 
 	release := func() {
