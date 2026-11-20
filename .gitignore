@@ -10,3 +10,6 @@
 /.impeccable/
 /DESIGN.md
 /PRODUCT.md
+
+# Stray Next.js build output; the web client is built with Vite into web/out.
+/web/.next/

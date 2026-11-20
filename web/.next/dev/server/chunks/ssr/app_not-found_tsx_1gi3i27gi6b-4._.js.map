@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///home/julio/Documentos/Github/orla/web/app/not-found.tsx"],"sourcesContent":["export default function NotFound() {\n  return (\n    <main className=\"login\">\n      <div className=\"empty\" style={{ margin: 0 }}>\n        <h2>Nothing here</h2>\n        <p>This address is not part of Orla.</p>\n        <a className=\"btn\" href=\"/\">\n          Open Orla\n        </a>\n      </div>\n    </main>\n  );\n}\n"],"names":["NotFound","className","style","margin","href"],"mappings":";;;;;;AAAe,SAASA;IACtB,qBACE,8OAAC;QAAKC,WAAU;kBACd,cAAA,8OAAC;YAAIA,WAAU;YAAQC,OAAO;gBAAEC,QAAQ;YAAE;;8BACxC,8OAAC;8BAAG;;;;;;8BACJ,8OAAC;8BAAE;;;;;;8BACH,8OAAC;oBAAEF,WAAU;oBAAMG,MAAK;8BAAI;;;;;;;;;;;;;;;;;AAMpC"}}]
-}

@@ -1,3 +1,0 @@
-module.exports=[[33290,a=>{var b=a.i(7997);a.s(["default",0,function({children:a}){return(0,b.jsx)("html",{lang:"en",children:(0,b.jsx)("body",{children:a})})},"metadata",0,{title:"Orla",description:"Agents on your server, step by step."},"viewport",0,{themeColor:"#091116",colorScheme:"dark",width:"device-width",initialScale:1}])},24951,(a,b,c)=>{b.exports=a.r(18622)},7997,(a,b,c)=>{b.exports=a.r(24951).vendored["react-rsc"].ReactJsxRuntime}],18622,(a,b,c)=>{b.exports=a.x("next/dist/compiled/next-server/app-page-turbo.runtime.prod.js",()=>require("next/dist/compiled/next-server/app-page-turbo.runtime.prod.js"))},70864,function(a){a.n(a.i(33290))}];
-
-//# sourceMappingURL=%5Broot-of-the-server%5D__1ireqd10pl8it._.js.map
